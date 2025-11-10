@@ -41,3 +41,6 @@ export const deleteProductoApi = (id) => apiCall(`productos/${id}`, 'DELETE');
 
 export const createVentaApi = (data) => apiCall('ventas', 'POST', data);
 export const getVentasApi = () => apiCall('ventas');
+
+export const getCierreDiarioApi = (fecha) => apiCall(`ventas/cierre-diario?fecha=${fecha}`);
+export const getVentasPorDiaApi = (fecha) => apiCall(`ventas/por-dia?fecha=${fecha}`);

@@ -1,33 +1,122 @@
 import { addProduct, deleteProducto, getProductos, updateProducto } from './productos.js';
 import { showConfirm, showSuccess, showError } from './utils/alerts.js';
 
-// Formulario de SweetAlert para editar
-async function mostrarFormularioEdicion(productoActual = {}) {
+/**
+ * Función auxiliar para formatear el stock.
+ * Ejemplo: 119 unidades_por_caja=30 -> "3 Cajas, 29 Unid."
+ */
+function formatearStock(stock, unidades_por_caja) {
+  if (stock === null || stock === undefined) return 'N/A';
+  if (unidades_por_caja <= 1) {
+    return `${stock} Unid.`;
+  }
+  
+  const cajas = Math.floor(stock / unidades_por_caja);
+  const unidades = stock % unidades_por_caja;
+  
+  let resultado = '';
+  if (cajas > 0) {
+    resultado += `${cajas} ${cajas === 1 ? 'Caja' : 'Cajas'}`;
+  }
+  if (unidades > 0) {
+    if (cajas > 0) resultado += ', ';
+    resultado += `${unidades} ${unidades === 1 ? 'Unid.' : 'Unid.'}`;
+  }
+  if (resultado === '') {
+    resultado = '0 Unid.';
+  }
+  return resultado;
+}
+
+/**
+ * Formulario de SweetAlert para añadir o editar productos.
+ * Es más complejo pero maneja la lógica de cajas/unidades.
+ */
+async function mostrarFormularioProducto(productoActual = {}) {
+
+  // Valores por defecto o del producto actual
+  const id = productoActual.id || null;
+  const nombre = productoActual.nombre || '';
+  const codigo_barras = productoActual.codigo_barras || '';
+  
+  // Unidades por caja (ej. 30 pastillas)
+  const unidades_por_caja = productoActual.unidades_por_caja || 1;
+  // Costo de esa caja (ej. $3000)
+  const costo_caja = productoActual.costo_caja || '';
+  // Precio de venta (por pastilla)
+  const precio = productoActual.precio || ''; 
+  
+  // Calcular stock en cajas y unidades para mostrar
+  let stock_cajas = 0;
+  let stock_unidades = 0;
+  if (productoActual.stock) {
+    stock_cajas = Math.floor(productoActual.stock / unidades_por_caja);
+    stock_unidades = productoActual.stock % unidades_por_caja;
+  }
+  
+  const titulo = id ? '✏️ Editar Producto' : '➕ Nuevo Producto';
+
   const { value: formValues } = await Swal.fire({
-    title: 'Editar Producto',
+    title: titulo,
     html: `
-      <input id="swal-nombre" class="swal2-input" placeholder="Nombre" value="${productoActual.nombre || ''}">
-      <input id="swal-codigo" class="swal2-input" placeholder="Código de Barras" value="${productoActual.codigo_barras || ''}">
-      <input id="swal-precio" class="swal2-input" placeholder="Precio" type="number" min="0" step="0.01" value="${productoActual.precio || ''}">
-      <input id="swal-stock" class="swal2-input" placeholder="Stock" type="number" min="0" value="${productoActual.stock || ''}">
+      <div class="swal-form-container">
+        <!-- Info Básica -->
+        <input id="swal-nombre" class="swal2-input" placeholder="Nombre del Producto" value="${nombre}">
+        <input id="swal-codigo" class="swal2-input" placeholder="Código de Barras" value="${codigo_barras}">
+        
+        <!-- Precios -->
+        <div class="swal-grupo">
+          <input id="swal-unidades-caja" class="swal2-input" placeholder="Unidades por Caja (ej. 30)" type="number" min="1" value="${unidades_por_caja}">
+          <input id="swal-costo-caja" class="swal2-input" placeholder="Costo de la Caja ($)" type="number" min="0" step="0.01" value="${costo_caja}">
+        </div>
+        <input id="swal-precio-venta" class="swal2-input" placeholder="Precio Venta (por Unidad)" type="number" min="0" step="0.01" value="${precio}">
+        
+        <!-- Stock -->
+        <label class="swal-label">Stock Actual:</label>
+        <div class="swal-grupo">
+          <input id="swal-stock-cajas" class="swal2-input" placeholder="Cajas" type="number" min="0" value="${stock_cajas || ''}">
+          <input id="swal-stock-unidades" class="swal2-input" placeholder="Unidades Sueltas" type="number" min="0" value="${stock_unidades || ''}">
+        </div>
+      </div>
     `,
     focusConfirm: false,
     showCancelButton: true,
+    confirmButtonText: 'Guardar',
+    cancelButtonText: 'Cancelar',
+    width: '48em', // Más ancho para el formulario
     preConfirm: () => {
-      const nombre = document.getElementById('swal-nombre').value.trim();
-      const codigo_barras = document.getElementById('swal-codigo').value.trim();
-      const precio = parseFloat(document.getElementById('swal-precio').value);
-      const stock = parseInt(document.getElementById('swal-stock').value, 10);
+      // Recolectar y validar los datos
+      const unidades = parseInt(document.getElementById('swal-unidades-caja').value, 10);
+      const stockCajas = parseInt(document.getElementById('swal-stock-cajas').value, 10) || 0;
+      const stockUnidades = parseInt(document.getElementById('swal-stock-unidades').value, 10) || 0;
+      
+      const datos = {
+        nombre: document.getElementById('swal-nombre').value.trim(),
+        codigo_barras: document.getElementById('swal-codigo').value.trim(),
+        precio: parseFloat(document.getElementById('swal-precio-venta').value),
+        
+        unidades_por_caja: unidades || 1,
+        costo_caja: parseFloat(document.getElementById('swal-costo-caja').value),
+        
+        stock_cajas: stockCajas,
+        stock_unidades: stockUnidades
+      };
 
-      if (!nombre || !codigo_barras || isNaN(precio) || isNaN(stock)) {
-        Swal.showValidationMessage('Por favor, completa todos los campos.');
+      // Validaciones
+      if (!datos.nombre || !datos.codigo_barras || isNaN(datos.precio) || isNaN(datos.costo_caja)) {
+        Swal.showValidationMessage('Por favor, completa Nombre, Código, Precio Venta y Costo Caja.');
         return false;
       }
-      if (precio < 0 || stock < 0) {
-        Swal.showValidationMessage('El precio y el stock no pueden ser negativos.');
+      if (datos.precio < 0 || datos.costo_caja < 0 || stockCajas < 0 || stockUnidades < 0) {
+        Swal.showValidationMessage('Los precios y el stock no pueden ser negativos.');
         return false;
       }
-      return { nombre, codigo_barras, precio, stock };
+      if (stockUnidades >= datos.unidades_por_caja && datos.unidades_por_caja > 1) {
+         Swal.showValidationMessage(`Las unidades sueltas (${stockUnidades}) no pueden ser mayores o iguales a las unidades por caja (${datos.unidades_por_caja}).`);
+         return false;
+      }
+
+      return datos; // Estos datos se envían al backend
     }
   });
   return formValues;
@@ -37,22 +126,21 @@ async function mostrarFormularioEdicion(productoActual = {}) {
 export async function renderProductosView(container) {
   // Limpia listeners antiguos para evitar duplicados
   if (container.handleProductosClick) container.removeEventListener('click', container.handleProductosClick);
-  if (container.handleProductosSubmit) container.removeEventListener('submit', container.handleProductosSubmit);
+  // (Quitamos el listener 'submit' porque el formulario ya no está)
 
+  // 1. DIBUJAR ESTRUCTURA (Ahora solo un botón y la tabla)
   container.innerHTML = `
-    <h2>Gestión de Productos</h2>
-    <form id="form-producto">
-      <input name="codigo_barras" placeholder="Código de Barras" />
-      <input name="nombre" placeholder="Nombre" />
-      <input name="precio" placeholder="Precio" type="number" min="0" step="0.01" />
-      <input name="stock" placeholder="Stock" type="number" min="0" />
-      <button type="submit">➕ Agregar</button>
-    </form>
+    <div class="historial-header"> <!-- Reutilizamos este estilo -->
+      <h2>Gestión de Productos</h2>
+      <button id="btn-nuevo-producto" class="btn-primario">➕ Nuevo Producto</button>
+    </div>
     <div id="productos-lista-container">Cargando productos...</div>
   `;
 
   const listaContainer = document.getElementById('productos-lista-container');
+  const btnNuevoProducto = document.getElementById('btn-nuevo-producto');
   
+  // 2. FUNCIÓN PARA DIBUJAR LA TABLA (Actualizada)
   const dibujarTabla = (productos) => {
     if (!productos || productos.length === 0) {
       listaContainer.innerHTML = '<p>No hay productos registrados.</p>';
@@ -60,14 +148,27 @@ export async function renderProductosView(container) {
     }
     listaContainer.innerHTML = `
       <table class="tabla-productos">
-        <thead> <tr> <th>Código</th> <th>Nombre</th> <th>Precio</th> <th>Stock</th> <th>Acciones</th> </tr> </thead>
+        <thead> 
+          <tr> 
+            <th>Nombre</th> 
+            <th>Código</th> 
+            <th>P. Venta (Unid.)</th> 
+            <th>Costo (Unid.)</th> 
+            <th>Stock (Detalle)</th> 
+            <th>Stock (Total)</th> 
+            <th>Acciones</th> 
+          </tr> 
+        </thead>
         <tbody>
           ${productos.map(p => `
             <tr>
-              <td>${p.codigo_barras || 'N/A'}</td>
               <td>${p.nombre}</td>
+              <td>${p.codigo_barras || 'N/A'}</td>
               <td>$${p.precio.toFixed(2)}</td>
-              <td>${p.stock}</td>
+              <td>$${p.costo.toFixed(2)}</td>
+              <!-- Columna de Stock Formateado -->
+              <td><strong>${formatearStock(p.stock, p.unidades_por_caja)}</strong></td>
+              <td>(${p.stock} Unid. Totales)</td>
               <td>
                 <button data-id="${p.id}" data-action="editar" title="Editar">✏️</button>
                 <button data-id="${p.id}" data-action="eliminar" title="Eliminar">🗑️</button>
@@ -81,24 +182,37 @@ export async function renderProductosView(container) {
 
   let productos = [];
   
-  // --- CARGA INICIAL DE DATOS CON MANEJO DE ERRORES ---
+  // 3. CARGA INICIAL DE DATOS
   try {
     productos = await getProductos();
     dibujarTabla(productos);
   } catch (error) {
     console.error("Error al obtener productos:", error);
-    listaContainer.innerHTML = `<p style="color: red;">Error al cargar los productos. Revisa la consola del backend (terminal).</p>`;
+    listaContainer.innerHTML = `<p class="error-msg">Error al cargar los productos.</p>`;
   }
 
-  // --- MANEJADORES DE EVENTOS ---
-
+  // 4. MANEJADOR DE EVENTOS (Simplificado)
   container.handleProductosClick = async (e) => {
-    const button = e.target.closest('button[data-action]');
+    const button = e.target.closest('button');
     if (!button) return;
 
-    const id = button.dataset.id;
     const action = button.dataset.action;
+    const id = button.dataset.id;
+    
+    // Botón "Nuevo Producto"
+    if (button.id === 'btn-nuevo-producto') {
+      const datosNuevos = await mostrarFormularioProducto();
+      if (datosNuevos) {
+        const fueExitoso = await addProduct(datosNuevos);
+        if (fueExitoso) {
+          showSuccess('Producto agregado');
+          productos = await getProductos();
+          dibujarTabla(productos);
+        }
+      }
+    }
 
+    // Botón "Eliminar"
     if (action === 'eliminar') {
       const confirm = await showConfirm('¿Estás seguro?', 'Esta acción no se puede revertir.');
       if (confirm && confirm.isConfirmed) {
@@ -109,9 +223,10 @@ export async function renderProductosView(container) {
       }
     }
 
+    // Botón "Editar"
     if (action === 'editar') {
       const productoActual = productos.find(p => p.id === parseInt(id));
-      const datosEditados = await mostrarFormularioEdicion(productoActual);
+      const datosEditados = await mostrarFormularioProducto(productoActual);
       if (datosEditados) {
         await updateProducto(id, datosEditados);
         showSuccess('Producto actualizado');
@@ -120,45 +235,31 @@ export async function renderProductosView(container) {
       }
     }
   };
-
-  container.handleProductosSubmit = async (e) => {
-    if (e.target.id === 'form-producto') {
-      e.preventDefault();
-      const form = e.target;
-      const botonAgregar = form.querySelector('button[type="submit"]');
-      const formData = new FormData(form);
-      const stockValue = formData.get('stock').trim();
-      
-      const nuevoProducto = {
-        codigo_barras: formData.get('codigo_barras').trim(),
-        nombre: formData.get('nombre').trim(),
-        precio: Number(formData.get('precio')),
-        stock: Number(stockValue),
-      };
-
-      if (!nuevoProducto.codigo_barras || !nuevoProducto.nombre || isNaN(nuevoProducto.precio) || stockValue === '') {
-        return showError('Todos los campos son obligatorios.');
-      }
-      if (nuevoProducto.precio < 0 || nuevoProducto.stock < 0) {
-        return showError('El precio y el stock no pueden ser negativos.');
-      }
-
-      botonAgregar.disabled = true;
-      botonAgregar.textContent = 'Agregando...';
-
-      const fueExitoso = await addProduct(nuevoProducto);
-
-      if (fueExitoso) {
-        productos = await getProductos();
-        dibujarTabla(productos);
-        form.reset();
-      }
-
-      botonAgregar.disabled = false;
-      botonAgregar.textContent = '➕ Agregar';
-    }
-  };
   
   container.addEventListener('click', container.handleProductosClick);
-  container.addEventListener('submit', container.handleProductosSubmit);
+  
+  // --- Añadimos los estilos CSS para el nuevo formulario de SweetAlert ---
+  const styleEl = document.createElement('style');
+  styleEl.innerHTML = `
+    .swal-form-container {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .swal-grupo {
+      display: flex;
+      gap: 10px;
+    }
+    .swal-grupo .swal2-input {
+      flex: 1;
+    }
+    .swal-label {
+      text-align: left;
+      font-weight: 500;
+      color: var(--dark-gray);
+      margin-top: 10px;
+      margin-left: 5px;
+    }
+  `;
+  document.head.appendChild(styleEl);
 }
