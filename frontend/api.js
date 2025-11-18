@@ -1,5 +1,3 @@
-// frontend/api.js
-
 const API_URL = "http://localhost:3000/api";
 const TOKEN = "mi-token-supersecreto"; 
 
@@ -10,7 +8,7 @@ async function apiCall(endpoint, method = 'GET', body = null) {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${TOKEN}`,
     },
-    cache: 'no-cache', // <-- AÑADE ESTA LÍNEA
+    cache: 'no-cache',
   };
 
   if (body) {
@@ -24,7 +22,6 @@ async function apiCall(endpoint, method = 'GET', body = null) {
     throw new Error(errorData.error || `Error en la petición a ${endpoint}`);
   }
   
-  // No intentar parsear JSON si la respuesta no tiene contenido (ej. en DELETE)
   if (response.status === 204) {
     return null;
   }
@@ -32,15 +29,20 @@ async function apiCall(endpoint, method = 'GET', body = null) {
   return response.json();
 }
 
-// Funciones de Productos
+// Productos
 export const getProductosApi = () => apiCall('productos');
 export const createProductoApi = (data) => apiCall('productos', 'POST', data);
 export const updateProductoApi = (id, data) => apiCall(`productos/${id}`, 'PUT', data);
 export const deleteProductoApi = (id) => apiCall(`productos/${id}`, 'DELETE');
 
-
+// Ventas
 export const createVentaApi = (data) => apiCall('ventas', 'POST', data);
-export const getVentasApi = () => apiCall('ventas');
-
+export const getVentasApi = () => apiCall('ventas'); 
 export const getCierreDiarioApi = (fecha) => apiCall(`ventas/cierre-diario?fecha=${fecha}`);
 export const getVentasPorDiaApi = (fecha) => apiCall(`ventas/por-dia?fecha=${fecha}`);
+
+// ⭐️ NUEVO: Función para obtener el Top de Productos
+export const getTopProductosApi = (periodo, fecha) => {
+    const fechaParam = fecha ? `&fecha=${fecha}` : '';
+    return apiCall(`ventas/top-productos?periodo=${periodo}${fechaParam}`);
+};

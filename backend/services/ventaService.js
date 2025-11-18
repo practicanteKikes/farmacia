@@ -1,8 +1,6 @@
 const db = require("../config/db");
 
 // --- Funciones de Promesas de la Base de Datos ---
-// (Estas son tus funciones originales, las necesitamos aquí)
-
 function dbRun(query, params = []) {
   return new Promise((resolve, reject) => {
     db.run(query, params, function (err) {
@@ -24,7 +22,7 @@ function dbGet(query, params = []) {
 // --- NUEVO Servicio de Creación de Venta ---
 
 const createSale = async (items) => {
-  // Inicia la transacción
+  // Inicia la transacción (si algo falla, no se guarda nada)
   await dbRun("BEGIN TRANSACTION");
   
   try {
@@ -45,48 +43,48 @@ const createSale = async (items) => {
       let costoVentaItem;
       let unidadesStockPorItem;
 
-      // Determinar precio, costo y unidades a descontar según el TIPO
+      // 3. Determinar precio, costo y unidades a descontar según el TIPO (Caja o Unidad)
       if (item.tipo === 'caja' && producto.unidades_por_caja > 1) {
-        // El item es una CAJA
+        // VENTA POR CAJA
         precioVentaItem = producto.precio_caja;
-        costoVentaItem = producto.costo_caja; // El costo de la caja entera
-        unidadesStockPorItem = producto.unidades_por_caja;
+        costoVentaItem = producto.costo_caja; // Usamos el costo de la caja entera
+        unidadesStockPorItem = producto.unidades_por_caja; // Descontamos 30 (ejemplo)
       } else {
-        // El item es una UNIDAD
+        // VENTA POR UNIDAD (Default)
         precioVentaItem = producto.precio;
-        costoVentaItem = producto.costo; // El costo de una sola unidad
-        unidadesStockPorItem = 1;
+        costoVentaItem = producto.costo; // Usamos el costo unitario
+        unidadesStockPorItem = 1; // Descontamos 1
       }
 
-      // 3. Validar Stock
+      // 4. Validar Stock
       const totalUnidadesADescontar = item.cantidad * unidadesStockPorItem;
       
       if (producto.stock < totalUnidadesADescontar) {
-        throw new Error(`Stock insuficiente para "${producto.nombre}". Stock actual: ${producto.stock}, se necesitan: ${totalUnidadesADescontar}`);
+        throw new Error(`Stock insuficiente para "${producto.nombre}". Tienes ${producto.stock} unidades, intentas vender ${totalUnidadesADescontar}.`);
       }
 
-      // 4. Calcular subtotal y total
+      // 5. Calcular subtotal y sumar al total general
       const subtotal = item.cantidad * precioVentaItem;
       totalCalculado += subtotal;
 
-      // 5. Insertar en venta_items (guardando el costo para el Cierre de Caja)
-      // Guardamos el precio y costo DEL ITEM VENDIDO (ej. 1 caja, $5000, $3000 costo)
+      // 6. Insertar en venta_items
+      // Aquí guardamos el costo REAL de lo que se vendió (sea caja o unidad) para el cierre de caja exacto.
       await dbRun(
         "INSERT INTO venta_items (venta_id, producto_id, cantidad, precio_unitario, costo_unitario) VALUES (?, ?, ?, ?, ?)",
         [ventaId, producto.id, item.cantidad, precioVentaItem, costoVentaItem]
       );
 
-      // 6. Actualizar el Stock (descontando el total de unidades)
+      // 7. Actualizar el Stock (descontando el total de unidades)
       await dbRun(
         "UPDATE productos SET stock = stock - ? WHERE id = ?",
         [totalUnidadesADescontar, producto.id]
       );
     }
 
-    // 7. Actualizar el total en la cabecera de la venta
+    // 8. Actualizar el total final en la cabecera de la venta
     await dbRun("UPDATE ventas SET total = ? WHERE id = ?", [totalCalculado, ventaId]);
 
-    // 8. Finalizar la transacción
+    // 9. Confirmar la transacción
     await dbRun("COMMIT");
 
     return {
@@ -96,9 +94,8 @@ const createSale = async (items) => {
     };
 
   } catch (error) {
-    // Si algo falla, revertir todo
+    // Si algo falla, revertir todos los cambios
     await dbRun("ROLLBACK");
-    // Lanzar el error para que el controlador lo atrape
     throw error; 
   }
 };

@@ -1,32 +1,36 @@
 const db = require("../config/db");
 
-// Función para calcular los datos guardados a partir de los datos del formulario
+// Función para procesar los datos antes de guardar
 function procesarDatosProducto(producto) {
-  // Asegurar que los valores numéricos sean válidos
+  // Aseguramos que los números sean válidos
   const unidades_por_caja = Math.max(1, Number(producto.unidades_por_caja) || 1);
   const costo_caja = Number(producto.costo_caja) || 0;
   
-  // 1. Calcular el costo por unidad
+  // 1. Costo Unitario: Necesario para el sistema (Cierre de Caja), 
+  // aunque tú solo manejes el costo de la caja.
   const costo_unitario = costo_caja / unidades_por_caja;
 
-  // 2. Simplificamos el stock: el usuario solo ingresa el total de unidades
+  // 2. Stock: Guardamos DIRECTAMENTE el número que tú pones (Total de Unidades)
   const stock_total = Number(producto.stock) || 0;
 
   return {
     nombre: producto.nombre,
     codigo_barras: producto.codigo_barras,
-    precio: Number(producto.precio) || 0,           // Precio Venta (por unidad)
-    precio_caja: Number(producto.precio_caja) || 0, // ⭐️ NUEVO: Precio Venta (por caja)
-    stock: stock_total,                             // Stock (total en unidades)
-    costo: costo_unitario,                          // Costo (por unidad)
+    // Precios de Venta (Tú los defines)
+    precio: Number(producto.precio) || 0,           // Precio Venta (Unidad)
+    precio_caja: Number(producto.precio_caja) || 0, // Precio Venta (Caja)
+    // Stock (Tú lo defines)
+    stock: stock_total,
+    // Costos
+    costo: costo_unitario,                          // Costo (Unidad) - Calculado internamente
     unidades_por_caja: unidades_por_caja,           // Unidades por paquete
-    costo_caja: costo_caja                          // Costo (por paquete)
+    costo_caja: costo_caja                          // Costo (Paquete)
   };
 }
 
 const getAllProducts = () => {
   return new Promise((resolve, reject) => {
-    // ⭐️ Traemos la nueva columna 'precio_caja'
+    // Traemos todas las columnas, incluyendo los precios de caja
     db.all("SELECT * FROM productos ORDER BY nombre ASC", [], (err, rows) => {
       if (err) reject(err);
       else resolve(rows);
@@ -91,6 +95,5 @@ const deleteProduct = (id) => {
         });
     });
 };
-
 
 module.exports = { getAllProducts, addProduct, updateProduct, deleteProduct };

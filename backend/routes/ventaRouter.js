@@ -2,18 +2,15 @@ const express = require("express");
 const router = express.Router();
 const ventaController = require("../controllers/ventaController");
 
-// --- Estas dos rutas ya las tenías ---
-router.post("/", ventaController.createSale);
-router.get("/", ventaController.getSales); // Esta es tu ruta de "total mes"
+// Rutas principales de Ventas
+router.post("/", ventaController.createSale);  // Crear una nueva venta
+router.get("/", ventaController.getSales);     // Obtener historial del mes actual
 
+// Rutas de Reportes y Cierre de Caja
+router.get('/cierre-diario', ventaController.getCierreCajaDiario); // Resumen de ganancias del día
+router.get('/por-dia', ventaController.getVentasPorDia);           // Lista detallada de ventas del día
 
-// (Estas rutas llaman a las funciones que ya añadimos en 'ventaController.js')
-
-// Ruta para el resumen de ganancias del día (ej. /api/ventas/cierre-diario?fecha=2025-11-10)
-router.get('/cierre-diario', ventaController.getCierreCajaDiario); 
-
-// Ruta para la lista detallada de ventas del día (ej. /api/ventas/por-dia?fecha=2025-11-10)
-router.get('/por-dia', ventaController.getVentasPorDia);
-// ---------------------------------
+// ⭐️ NUEVA RUTA para el Top de Ventas (Más vendidos del día/mes)
+router.get('/top-productos', ventaController.getTopProducts);
 
 module.exports = router;

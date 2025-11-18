@@ -7,7 +7,7 @@ let todosLosProductos = [];
 
 /**
  * Función auxiliar para formatear el stock.
- * Copiada de productosUI.js para consistencia.
+ * Copiada de productosUI.js para consistencia visual.
  */
 function formatearStock(stock, unidades_por_caja) {
   if (stock === null || stock === undefined) return 'N/A';
@@ -16,19 +16,17 @@ function formatearStock(stock, unidades_por_caja) {
   }
   const cajas = Math.floor(stock / unidades_por_caja);
   const unidades = stock % unidades_por_caja;
-  let resultado = '';
-  if (cajas > 0) resultado += `${cajas} ${cajas === 1 ? 'Caja' : 'Cajas'}`;
-  if (unidades > 0) {
-    if (cajas > 0) resultado += ', ';
-    resultado += `${unidades} ${unidades === 1 ? 'Unid.' : 'Unid.'}`;
-  }
-  if (resultado === '') resultado = '0 Unid.';
-  return resultado;
+  let resultado = [];
+  if (cajas > 0) resultado.push(`${cajas} ${cajas === 1 ? 'Caja' : 'Cajas'}`);
+  if (unidades > 0) resultado.push(`${unidades} ${unidades === 1 ? 'Unid.' : 'Unid.'}`);
+  
+  if (resultado.length === 0) return '0 Unid.';
+  return resultado.join(', ');
 }
 
 /**
  * Calcula el total de unidades de un producto que ya están en el carrito.
- * Esto es clave para validar el stock.
+ * Esto es clave para validar el stock y no vender más de lo que tienes.
  */
 function calcularUnidadesEnCarrito(productoId) {
   return carrito.reduce((total, item) => {
@@ -47,13 +45,19 @@ function incrementarCantidad(cartItemId) {
   
   const productoInfo = todosLosProductos.find(p => p.id === item.productoId);
   
-  // Revisar stock
+  // Revisar stock disponible
   const unidadesYaEnCarrito = calcularUnidadesEnCarrito(item.productoId);
   const stockDisponible = productoInfo.stock - unidadesYaEnCarrito;
   
-  if (stockDisponible >= item.unidadesPorItem) {
-    item.cantidad++;
-    renderCarrito();
+  // Si hay suficiente stock para agregar OTRO item de este tipo (ej. otra caja de 30)
+  if (stockDisponible >= 0) { // La lógica de validación ya se hizo al agregar, aquí solo sumamos si no excedemos el total
+      // Re-validamos con el total teórico si sumamos uno más
+      if ((unidadesYaEnCarrito + item.unidadesPorItem) <= productoInfo.stock) {
+        item.cantidad++;
+        renderCarrito();
+      } else {
+        showError('No hay más stock disponible para agregar otra unidad/caja.');
+      }
   } else {
     showError('No hay más stock disponible.');
   }
@@ -87,7 +91,10 @@ function renderCarrito() {
       <ul class="lista-carrito">
         ${carrito.map(item => `
           <li>
-            <span>${item.nombre}</span> <!-- El nombre ya es "Paracetamol (Caja)" -->
+            <div class="carrito-info">
+                <span class="carrito-nombre">${item.nombre}</span>
+                <small style="color:#666">${item.tipo === 'caja' ? '📦 Caja' : '💊 Unidad'}</small>
+            </div>
             <div class="carrito-controles">
               <button data-id="${item.cartItemId}" data-action="decrementar" class="btn-cantidad">-</button>
               <span>${item.cantidad}</span>
@@ -102,7 +109,7 @@ function renderCarrito() {
   }
 
   const total = carrito.reduce((sum, item) => sum + (item.cantidad * item.precio), 0);
-  totalValorSpan.textContent = total.toFixed(2);
+  totalValorSpan.textContent = total.toLocaleString(); // Formato moneda
 }
 
 /**
@@ -113,74 +120,80 @@ function agregarAlCarrito(productoId, tipo) {
   const productoInfo = todosLosProductos.find(p => p.id === productoId);
   if (!productoInfo) return;
 
-  // Revisar si el item (ej. "5-caja") ya existe
+  // Revisar si el item ya existe en el carrito
   const itemExistente = carrito.find(item => item.cartItemId === cartItemId);
   
-  if (itemExistente) {
-    incrementarCantidad(cartItemId);
-    return;
-  }
-  
-  // Definir las propiedades del nuevo item
+  // Definir propiedades según el tipo de venta
   let nombre, precio, unidadesPorItem;
   
   if (tipo === 'caja') {
-    nombre = `${productoInfo.nombre} (Caja)`;
+    nombre = `${productoInfo.nombre}`;
     precio = productoInfo.precio_caja;
     unidadesPorItem = productoInfo.unidades_por_caja;
   } else {
-    nombre = `${productoInfo.nombre} (Unidad)`;
+    nombre = `${productoInfo.nombre}`;
     precio = productoInfo.precio;
     unidadesPorItem = 1;
   }
 
-  // Validar Stock antes de agregar
+  // Validar Stock
   const unidadesYaEnCarrito = calcularUnidadesEnCarrito(productoId);
-  const stockDisponible = productoInfo.stock - unidadesYaEnCarrito;
+  // Cuántas unidades "reales" necesitamos para agregar este item
+  const unidadesNecesarias = unidadesPorItem; 
   
-  if (stockDisponible >= unidadesPorItem) {
-    carrito.push({
-      cartItemId: cartItemId,
-      productoId: productoId,
-      nombre: nombre,
-      precio: precio,
-      tipo: tipo,
-      cantidad: 1, // Siempre se agrega 1 al inicio
-      unidadesPorItem: unidadesPorItem // Cuánto descuenta del stock (1 o 30)
-    });
+  if ((unidadesYaEnCarrito + unidadesNecesarias) <= productoInfo.stock) {
+    if (itemExistente) {
+        itemExistente.cantidad++;
+    } else {
+        carrito.push({
+          cartItemId: cartItemId,
+          productoId: productoId,
+          nombre: nombre,
+          precio: precio,
+          tipo: tipo,
+          cantidad: 1, 
+          unidadesPorItem: unidadesPorItem // Guardamos cuánto descuenta del stock real
+        });
+    }
     renderCarrito();
   } else {
-    showError('Este producto no tiene stock disponible.');
+    showError(`Stock insuficiente. Necesitas ${unidadesNecesarias} unidades libres.`);
   }
 }
 
 /**
- * Muestra los resultados de búsqueda, duplicando si se puede vender por caja.
+ * Muestra los resultados de búsqueda.
+ * MAGIA: Muestra opción de CAJA si el producto tiene configuración de caja.
  */
 function renderResultadosBusqueda(resultados) {
   const contenedorResultados = document.getElementById('resultados-busqueda');
   
-  // Convertimos la lista de productos en una lista de "opciones de venta"
+  // Aplanamos la lista: Un producto puede generar 1 o 2 líneas en el resultado
   const opcionesDeVenta = resultados.flatMap(p => {
     const opciones = [];
+    const stockTexto = formatearStock(p.stock, p.unidades_por_caja);
     
-    // Opción 1: Vender por Unidad (siempre)
+    // 1. Opción Venta por UNIDAD (Siempre disponible)
     opciones.push({
       id: p.id,
       tipo: 'unidad',
-      nombre: `${p.nombre} (Unidad)`,
+      nombre: `${p.nombre}`,
+      detalle: 'Unidad',
       precio: p.precio,
-      stockTexto: formatearStock(p.stock, p.unidades_por_caja)
+      stockTexto: stockTexto,
+      icono: '💊'
     });
 
-    // Opción 2: Vender por Caja (solo si aplica)
+    // 2. Opción Venta por CAJA (Solo si configuraste unidades_por_caja > 1 y precio_caja > 0)
     if (p.unidades_por_caja > 1 && p.precio_caja > 0) {
       opciones.push({
         id: p.id,
         tipo: 'caja',
-        nombre: `${p.nombre} (Caja)`,
+        nombre: `${p.nombre}`,
+        detalle: `Caja x${p.unidades_por_caja}`,
         precio: p.precio_caja,
-        stockTexto: formatearStock(p.stock, p.unidades_por_caja)
+        stockTexto: stockTexto,
+        icono: '📦'
       });
     }
     
@@ -195,10 +208,18 @@ function renderResultadosBusqueda(resultados) {
   contenedorResultados.innerHTML = `
     <ul class="lista-resultados">
       ${opcionesDeVenta.map(op => `
-        <!-- El data-id es el ID del producto, data-tipo es 'unidad' o 'caja' -->
         <li data-id="${op.id}" data-tipo="${op.tipo}">
-          <strong>${op.nombre}</strong> - $${op.precio.toFixed(2)} 
-          <span style="color:var(--dark-gray); font-size: 0.9em;">(Stock: ${op.stockTexto})</span>
+          <div class="resultado-info">
+            <span class="resultado-icono">${op.icono}</span>
+            <div>
+                <strong>${op.nombre}</strong> <span class="badge-tipo">${op.detalle}</span>
+                <br>
+                <small>Stock: ${op.stockTexto}</small>
+            </div>
+          </div>
+          <div class="resultado-precio">
+            $${op.precio.toLocaleString()}
+          </div>
         </li>
       `).join('')}
     </ul>
@@ -210,8 +231,7 @@ async function finalizarVenta() {
     return showError("El carrito está vacío.");
   }
 
-  // ⭐️ CRÍTICO: Preparamos los datos para el NUEVO backend
-  // El backend ahora necesita saber el 'tipo' ('unidad' o 'caja')
+  // Preparamos los datos para el backend (que ahora espera 'tipo')
   const itemsParaVenta = carrito.map(item => ({
     id: item.productoId,
     cantidad: item.cantidad,
@@ -223,7 +243,7 @@ async function finalizarVenta() {
     showSuccess(resultado.mensaje || "¡Venta realizada con éxito!");
     carrito = [];
     renderCarrito();
-    // Recargamos los productos porque el stock ha cambiado
+    // Recargamos productos para actualizar stocks
     todosLosProductos = await getProductos();
   } catch (error) {
     showError(error.message);
@@ -233,7 +253,7 @@ async function finalizarVenta() {
 // --- FUNCIÓN PRINCIPAL DE LA VISTA ---
 
 export async function renderVentasView(container) {
-  // Limpia listeners antiguos...
+  // Limpieza de listeners
   if (container.handleVentasClick) container.removeEventListener('click', container.handleVentasClick);
   if (container.handleVentasSubmit) container.removeEventListener('submit', container.handleVentasSubmit);
   if (container.handleVentasInput) {
@@ -244,7 +264,7 @@ export async function renderVentasView(container) {
   try {
     todosLosProductos = await getProductos();
   } catch(e) {
-    showError("Error fatal: No se pudieron cargar los productos. Revisa el backend.");
+    showError("No se pudieron cargar los productos.");
     todosLosProductos = [];
   }
 
@@ -253,34 +273,47 @@ export async function renderVentasView(container) {
       <div class="panel-busqueda">
         <h2>Punto de Venta</h2>
         <form id="form-busqueda-producto" novalidate>
-          <input type="text" id="input-busqueda" placeholder="Buscar por nombre o escanear código..." autofocus />
+          <input type="text" id="input-busqueda" placeholder="🔍 Buscar por nombre o código..." autofocus />
         </form>
         <div id="resultados-busqueda"></div>
       </div>
       <div class="panel-carrito">
-        <h3>Carrito de Compras</h3>
+        <h3>🛒 Carrito</h3>
         <div id="carrito-items"><p>El carrito está vacío.</p></div>
-        <div class="carrito-total"><strong>Total: $<span id="carrito-total-valor">0.00</span></strong></div>
-        <button id="btn-finalizar-venta" disabled>Finalizar Venta</button>
+        <div class="carrito-total">Total: $<span id="carrito-total-valor">0.00</span></div>
+        <button id="btn-finalizar-venta" disabled>Cobrar</button>
       </div>
     </div>
   `;
+
+  // Estilos específicos para esta vista (Pequeño ajuste visual)
+  const style = document.createElement('style');
+  style.innerHTML = `
+    .lista-resultados li { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #eee; cursor: pointer; }
+    .lista-resultados li:hover { background-color: #f8f9fa; }
+    .resultado-info { display: flex; align-items: center; gap: 10px; }
+    .resultado-icono { font-size: 1.5em; }
+    .resultado-precio { font-weight: bold; color: var(--primary-color); font-size: 1.1em; }
+    .badge-tipo { background: #e9ecef; padding: 2px 6px; border-radius: 4px; font-size: 0.8em; color: #495057; font-weight: normal; }
+    .carrito-info { display: flex; flex-direction: column; }
+    .carrito-nombre { font-weight: 500; }
+  `;
+  container.appendChild(style);
 
   renderCarrito();
 
   const inputBusqueda = document.getElementById('input-busqueda');
 
-  // --- MANEJADORES DE EVENTOS ---
+  // --- EVENTOS ---
 
   container.handleVentasClick = (e) => {
     const target = e.target;
 
-    // Click en un resultado de búsqueda
+    // Seleccionar producto de la lista
     const itemBusqueda = target.closest('.lista-resultados li');
     if (itemBusqueda) {
       const productoId = parseInt(itemBusqueda.dataset.id, 10);
-      const tipo = itemBusqueda.dataset.tipo; // 'unidad' o 'caja'
-      
+      const tipo = itemBusqueda.dataset.tipo; 
       agregarAlCarrito(productoId, tipo);
       
       inputBusqueda.value = '';
@@ -289,45 +322,43 @@ export async function renderVentasView(container) {
       return;
     }
 
-    // Click en botones +/- del carrito
+    // Botones carrito
     const btnCantidad = target.closest('.btn-cantidad');
     if (btnCantidad) {
-      const cartItemId = btnCantidad.dataset.id; // "5-caja" o "5-unidad"
+      const cartItemId = btnCantidad.dataset.id;
       const action = btnCantidad.dataset.action;
       if (action === 'incrementar') incrementarCantidad(cartItemId);
       if (action === 'decrementar') decrementarCantidad(cartItemId);
       return;
     }
 
-    // Click en "Finalizar Venta"
+    // Finalizar
     if (target.id === 'btn-finalizar-venta') {
       finalizarVenta();
     }
   };
 
-  // Manejador para el ESCÁNER DE CÓDIGO
   container.handleVentasSubmit = (e) => {
     if (e.target.id === 'form-busqueda-producto') {
       e.preventDefault();
       const codigo = inputBusqueda.value.trim();
       if (codigo === '') return;
+      
+      // Búsqueda exacta por código de barras
       const productoEncontrado = todosLosProductos.find(p => p.codigo_barras === codigo);
       
       if (productoEncontrado) {
-        // ASUNCIÓN: El escáner siempre agrega 1 UNIDAD.
-        // Es la acción más segura y común.
+        // Por defecto, el escáner agrega 1 UNIDAD
         agregarAlCarrito(productoEncontrado.id, 'unidad');
-        
         inputBusqueda.value = '';
         document.getElementById('resultados-busqueda').innerHTML = '';
       } else {
-        showError('Producto no encontrado con ese código.');
+        showError('Producto no encontrado.');
         inputBusqueda.select();
       }
     }
   };
   
-  // Manejador para la BÚSQUEDA POR NOMBRE
   container.handleVentasInput = (e) => {
     const termino = e.target.value.toLowerCase().trim();
     if (termino.length < 2) {

@@ -2,47 +2,51 @@ const sqlite3 = require("sqlite3").verbose();
 const path = require("path");
 const { app } = require("electron");
 
+// Obtener ruta de datos segura
 const userDataPath = app.getPath("userData");
 const dbPath = path.join(userDataPath, "farmacia.db");
 
 console.log("Ruta de la base de datos:", dbPath);
 
+// Crear la conexión
 const db = new sqlite3.Database(dbPath, (err) => {
-  if (err) console.error("❌ Error CRÍTICO al conectar con SQLite:", err.message);
-  else console.log("✅ Conectado a la base de datos SQLite en:", dbPath);
+  if (err) {
+    console.error("❌ Error CRÍTICO al conectar con SQLite:", err.message);
+  } else {
+    console.log("✅ Conectado a la base de datos SQLite en:", dbPath);
+  }
 });
 
-// Función auxiliar para añadir una columna solo si no existe
+// Función auxiliar
 function addColumnIfNotExists(tableName, columnName, columnDefinition) {
   db.all(`PRAGMA table_info(${tableName})`, (err, columns) => {
-    if (err) return console.error(`Error al revisar la tabla ${tableName}:`, err.message);
-    
-    const columnExists = columns.some(col => col.name === columnName);
-    
-    if (!columnExists) {
+    if (err) return console.error(`Error al revisar tabla ${tableName}:`, err.message);
+    const exists = columns.some(col => col.name === columnName);
+    if (!exists) {
       db.run(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${columnDefinition}`, (err) => {
-        if (err) console.error(`Error al añadir la columna ${columnName} a ${tableName}:`, err.message);
-        else console.log(`✅ Columna ${columnName} añadida a la tabla ${tableName}.`);
+        if (err) console.error(`Error añadiendo ${columnName}:`, err.message);
+        else console.log(`✅ Columna ${columnName} añadida.`);
       });
     }
   });
 }
 
-// Crear tablas y migraciones
+// Inicializar tablas y migraciones
 db.serialize(() => {
-  // Productos
+  // 1. Productos
   db.run(`
     CREATE TABLE IF NOT EXISTS productos (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       nombre TEXT NOT NULL,
       codigo_barras TEXT UNIQUE,
-      precio REAL NOT NULL,           -- 👈 Precio Venta (por UNIDAD)
-      stock INTEGER DEFAULT 0,        -- 👈 Stock (total en UNIDADES)
+      stock INTEGER DEFAULT 0,
+      precio REAL NOT NULL,
+      costo REAL DEFAULT 0,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `);
 
-  // Ventas (cabecera)
+  // 2. Ventas
   db.run(`
     CREATE TABLE IF NOT EXISTS ventas (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -51,21 +55,21 @@ db.serialize(() => {
     )
   `);
 
-  // Detalle de ventas (items)
+  // 3. Items de Venta
   db.run(`
     CREATE TABLE IF NOT EXISTS venta_items (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       venta_id INTEGER NOT NULL,
       producto_id INTEGER NOT NULL,
-      cantidad INTEGER NOT NULL,      -- 👈 Cantidad de UNIDADES vendidas (ej. 1 o 30)
-      precio_unitario REAL NOT NULL,  -- 👈 Precio al que se vendió (sea unidad o caja)
-      costo_unitario REAL NOT NULL DEFAULT 0,
+      cantidad INTEGER NOT NULL,
+      precio_unitario REAL NOT NULL,
+      costo_unitario REAL DEFAULT 0,
       FOREIGN KEY (venta_id) REFERENCES ventas (id),
       FOREIGN KEY (producto_id) REFERENCES productos (id)
     )
   `);
 
-  // Usuarios
+  // 4. Usuarios
   db.run(`
     CREATE TABLE IF NOT EXISTS usuarios (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -74,24 +78,16 @@ db.serialize(() => {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `);
-  
-  // Índice
+
   db.run(`CREATE INDEX IF NOT EXISTS idx_ventas_fecha ON ventas(fecha)`);
 
-  // --- MIGRACIONES ---
-  // Añadimos las nuevas columnas a la tabla de productos si no existen
-  
-  // Costo (por UNIDAD, ej. pastilla)
-  addColumnIfNotExists('productos', 'costo', 'REAL NOT NULL DEFAULT 0'); 
-  
-  // Unidades por Caja (Cuántas unidades trae el paquete de compra)
+  // --- MIGRACIONES (Nuevas Columnas) ---
   addColumnIfNotExists('productos', 'unidades_por_caja', 'INTEGER NOT NULL DEFAULT 1');
-  
-  // Costo de la Caja (Lo que pagas al proveedor por el paquete)
-  addColumnIfNotExists('productos', 'costo_caja', 'REAL NOT NULL DEFAULT 0');
-  
-  // ⭐️ NUEVA COLUMNA: Precio de Venta de la CAJA
-  addColumnIfNotExists('productos', 'precio_caja', 'REAL NOT NULL DEFAULT 0');
+  addColumnIfNotExists('productos', 'precio_caja', 'REAL NOT NULL DEFAULT 0'); 
+  addColumnIfNotExists('productos', 'costo_caja', 'REAL NOT NULL DEFAULT 0');  
+  addColumnIfNotExists('productos', 'costo', 'REAL NOT NULL DEFAULT 0');
+  addColumnIfNotExists('venta_items', 'costo_unitario', 'REAL DEFAULT 0');
 });
 
+// ⭐️ ESTA LÍNEA ES LA MÁS IMPORTANTE. SIN ELLA, APARECE EL ERROR "db.all is not a function"
 module.exports = db;
