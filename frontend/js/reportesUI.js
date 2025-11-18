@@ -80,7 +80,7 @@ export function renderReportesView(container) {
             <!-- Columna 1: Top del Día -->
             <div class="panel-reporte">
                 <div class="reporte-header">
-                    <h3>🔥 Top del Día (Hoy)</h3>
+                    <h3> Ventas total del Día (Hoy)</h3>
                     <input type="date" id="fecha-top-dia" value="${fechaHoy}" max="${fechaHoy}">
                 </div>
                 <div id="tabla-top-dia"></div>
@@ -89,7 +89,7 @@ export function renderReportesView(container) {
             <!-- Columna 2: Top del Mes -->
             <div class="panel-reporte">
                 <div class="reporte-header">
-                    <h3>📅 Top del Mes Actual</h3>
+                    <h3>📅 Ventas totales del Mes Actual</h3>
                 </div>
                 <div id="tabla-top-mes"></div>
             </div>
