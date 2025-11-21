@@ -160,8 +160,8 @@ exports.getVentasPorDia = (req, res) => {
 };
 
 /**
- * 🔹 ⭐️ NUEVO: Obtener el TOP de productos más vendidos
- * Recibe ?periodo=dia o ?periodo=mes
+ * 🔹 ⭐️ ESTA ES LA FUNCIÓN NUEVA QUE FALTABA
+ * Obtener el TOP de productos más vendidos
  */
 exports.getTopProducts = (req, res) => {
   const { periodo, fecha } = req.query; // 'dia' o 'mes'
@@ -180,7 +180,6 @@ exports.getTopProducts = (req, res) => {
       params = [];
   }
 
-  // Esta consulta suma la cantidad de unidades vendidas agrupadas por producto
   const sql = `
     SELECT 
       p.nombre,

@@ -1,4 +1,3 @@
-// backend/server.js
 const express = require("express");
 const cors = require("cors");
 const bodyParser = require("body-parser");
@@ -6,10 +5,9 @@ const bodyParser = require("body-parser");
 // Routers
 const productRouter = require("./routes/productRouter");
 const ventaRouter = require("./routes/ventaRouter");
-// Tienes dos routers para ventas, usaré solo uno. Asegúrate de que sea el correcto.
-// const saleRouter = require("./routes/saleRouter"); 
 
 const app = express();
+const PORT = 3000; // Puerto donde correrá el servidor
 
 // Token fijo (local)
 const FIXED_TOKEN = "mi-token-supersecreto";
@@ -31,10 +29,18 @@ function authenticateToken(req, res, next) {
 // Rutas API (protegidas)
 app.use("/api/productos", authenticateToken, productRouter);
 app.use("/api/ventas", authenticateToken, ventaRouter);
-// app.use("/api/ventas", authenticateToken, saleRouter); // Esta línea es redundante
 
-// Hemos quitado las líneas `app.use(express.static(...))` y `app.get("*", ...)`
-// porque Electron ya se encarga de mostrar tu frontend con el comando `mainWindow.loadFile()`.
+// Ruta base para probar que el servidor vive
+app.get('/', (req, res) => {
+  res.send('Servidor Farmacia Activo');
+});
 
-// 👇 CAMBIO CLAVE: Exportamos la app en lugar de iniciarla aquí.
+// 👇 ESTO ERA LO QUE FALTABA: HACER QUE EL SERVIDOR ESCUCHE
+if (require.main !== module) {
+    // Si el archivo es importado por 'main.js' (Electron), iniciamos el servidor
+    const server = app.listen(PORT, () => {
+        console.log(`✅ Servidor Backend con Autenticación corriendo en http://localhost:${PORT}`);
+    });
+}
+
 module.exports = app;
