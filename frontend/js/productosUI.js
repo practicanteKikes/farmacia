@@ -1,173 +1,192 @@
 import { addProduct, deleteProducto, getProductos, updateProducto } from './productos.js';
 import { showConfirm, showSuccess, showError } from './utils/alerts.js';
 
-/**
- * Función auxiliar para mostrar el stock de forma humana.
- * Ejemplo: "3 Cajas, 5 Unid."
- */
-function formatearStock(stock, unidades_por_caja) {
-  if (stock === null || stock === undefined) return '0';
+// Función para mostrar el stock de forma bonita en la tabla
+function formatearStock(stock, unidades_por_caja, tiene_sobres, unidades_por_sobre) {
+  if (!stock) return '0';
   
-  // Si es un producto simple (1 unidad por caja), mostramos solo el número
-  if (unidades_por_caja <= 1) {
-    return `${stock} Unid.`;
-  }
-  
+  if (unidades_por_caja <= 1) return `${stock} Unid.`;
+
   const cajas = Math.floor(stock / unidades_por_caja);
-  const sueltas = stock % unidades_por_caja;
-  
+  let resto = stock % unidades_por_caja;
+  let sobres = 0;
+  let sueltas = resto;
+
+  // Aunque no lo pidamos en el formulario, aquí sí lo mostramos bonito
+  if (tiene_sobres && unidades_por_sobre > 0) {
+    sobres = Math.floor(resto / unidades_por_sobre);
+    sueltas = resto % unidades_por_sobre;
+  }
+
   let texto = [];
-  if (cajas > 0) texto.push(`${cajas} ${cajas === 1 ? 'Caja' : 'Cajas'}`);
-  if (sueltas > 0) texto.push(`${sueltas} ${sueltas === 1 ? 'Unid.' : 'Unid.'}`);
+  if (cajas > 0) texto.push(`${cajas} Caja(s)`);
+  if (sobres > 0) texto.push(`${sobres} Sobre(s)`);
+  if (sueltas > 0) texto.push(`${sueltas} Unid.`);
   
-  if (texto.length === 0) return "0 Unid.";
-  return texto.join(", ");
+  return texto.length > 0 ? texto.join(", ") : "0";
 }
 
-/**
- * Formulario Principal de Productos
- */
-async function mostrarFormularioProducto(productoActual = {}) {
-  const id = productoActual.id || null;
+async function mostrarFormularioProducto(prod = {}) {
+  const id = prod.id || null;
   const titulo = id ? '✏️ Editar Producto' : '➕ Nuevo Producto';
   
-  // Datos Básicos
-  const nombre = productoActual.nombre || '';
-  const codigo_barras = productoActual.codigo_barras || '';
-  
-  // Configuración de Caja
-  const unidades_por_caja = productoActual.unidades_por_caja || 1;
-  
-  // Costos
-  const costo_caja = productoActual.costo_caja || '';
-  
-  // Precios de Venta
-  const precio_unidad = productoActual.precio || '';
-  const precio_caja = productoActual.precio_caja || '';
+  const tieneSobres = prod.tiene_sobres === 1;
+  const unidadesCaja = prod.unidades_por_caja || 1; 
+  const sobresPorCaja = prod.sobres_por_caja || 1; 
+  const unidadesPorSobre = prod.unidades_por_sobre || 1; 
 
-  // Cálculo inverso del Stock para mostrarlo en el formulario
-  let stock_cajas = 0;
-  let stock_sueltas = 0;
+  // --- LÓGICA SIMPLIFICADA DE STOCK ---
+  // Solo calculamos Cajas y el Resto (Unidades sueltas totales)
+  let stockCajas = 0;
+  let stockSueltas = 0;
   
-  if (productoActual.stock) {
-    stock_cajas = Math.floor(productoActual.stock / unidades_por_caja);
-    stock_sueltas = productoActual.stock % unidades_por_caja;
+  if (prod.stock) {
+    stockCajas = Math.floor(prod.stock / unidadesCaja);
+    stockSueltas = prod.stock % unidadesCaja; // Todo lo que no es caja, es unidad suelta
   }
 
   const { value: formValues } = await Swal.fire({
     title: titulo,
+    width: '700px',
     html: `
-      <div class="swal-form-container">
+      <div class="swal-form-container" style="text-align:left; font-size:0.9rem;">
         
-        <!-- 1. IDENTIFICACIÓN -->
-        <label class="swal-section-title">📦 Producto</label>
         <div class="swal-grupo">
-          <input id="swal-nombre" class="swal2-input" placeholder="Nombre" value="${nombre}">
-          <input id="swal-codigo" class="swal2-input" placeholder="Código Barras" value="${codigo_barras}">
+          <input id="swal-nombre" class="swal2-input" placeholder="Nombre" value="${prod.nombre || ''}" style="flex:2">
+          <input id="swal-codigo" class="swal2-input" placeholder="Código" value="${prod.codigo_barras || ''}" style="flex:1">
         </div>
 
-        <!-- 2. DEFINICIÓN DE LA CAJA (IMPORTANTE) -->
-        <label class="swal-section-title">📏 Configuración de Empaque</label>
-        <div class="swal-grupo">
-          <div class="input-wrapper">
-            <label>Unidades por Caja</label>
-            <input id="swal-unidades-caja" class="swal2-input" type="number" min="1" value="${unidades_por_caja}">
+        <div style="background:#f8f9fa; padding:10px; border-radius:8px; margin:10px 0; border:1px solid #dee2e6;">
+          <label style="display:flex; align-items:center; cursor:pointer; font-weight:bold; color:#007bff; margin-bottom:10px;">
+            <input type="checkbox" id="check-tiene-sobres" ${tieneSobres ? 'checked' : ''} style="width:20px; height:20px; margin-right:10px;">
+            ¿Este producto se vende por Sobres?
+          </label>
+
+          <!-- OPCIÓN A: NORMAL -->
+          <div id="config-normal" style="display:${tieneSobres ? 'none' : 'flex'}; gap:10px;">
+            <div class="input-wrapper">
+              <label>Unidades por Caja</label>
+              <input id="swal-unidades-simple" class="swal2-input" type="number" min="1" value="${!tieneSobres ? unidadesCaja : 1}">
+            </div>
           </div>
-          <div class="input-wrapper">
-             <label>Costo de la Caja ($)</label>
-            <input id="swal-costo-caja" class="swal2-input" type="number" min="0" step="0.01" value="${costo_caja}">
+
+          <!-- OPCIÓN B: CON SOBRES -->
+          <div id="config-sobres" style="display:${tieneSobres ? 'flex' : 'none'}; gap:10px;">
+            <div class="input-wrapper">
+              <label>Sobres por Caja</label>
+              <input id="swal-sobres-caja" class="swal2-input" type="number" min="1" value="${sobresPorCaja}">
+            </div>
+            <div class="input-wrapper">
+              <label>Unidades por Sobre</label>
+              <input id="swal-unidades-sobre" class="swal2-input" type="number" min="1" value="${unidadesPorSobre}">
+            </div>
+          </div>
+          
+          <div class="input-wrapper" style="margin-top:10px;">
+            <label>Costo de la Caja ($)</label>
+            <input id="swal-costo-caja" class="swal2-input" type="number" min="0" value="${prod.costo_caja || ''}">
           </div>
         </div>
 
-        <!-- 3. STOCK FÍSICO (Lo que tienes en estantería) -->
-        <label class="swal-section-title">🏭 Inventario Físico</label>
+        <label class="swal-label">💰 Precios de Venta</label>
+        <div class="swal-grupo">
+          <div class="input-wrapper"><label>P. Caja</label><input id="swal-precio-caja" class="swal2-input" type="number" value="${prod.precio_caja || ''}"></div>,
+          
+          <div class="input-wrapper" id="div-precio-sobre" style="display:${tieneSobres ? 'block' : 'none'}">
+            <label>P. Sobre</label><input id="swal-precio-sobre" class="swal2-input" type="number" value="${prod.precio_sobre || ''}">
+          </div>
+          
+          <div class="input-wrapper"><label>P. Unidad</label><input id="swal-precio-unidad" class="swal2-input" type="number" value="${prod.precio || ''}"></div>
+        </div>
+
+        <!-- ⭐️ STOCK SIMPLIFICADO -->
+        <label class="swal-label">🏭 Stock Físico</label>
         <div class="swal-grupo bg-gray">
           <div class="input-wrapper">
             <label>Cajas Cerradas</label>
-            <input id="swal-stock-cajas" class="swal2-input" type="number" min="0" value="${stock_cajas}">
+            <input id="swal-stock-cajas" class="swal2-input" type="number" min="0" value="${stockCajas}">
           </div>
+          
           <div class="input-wrapper">
-            <label>Unidades Sueltas</label>
-            <input id="swal-stock-sueltas" class="swal2-input" type="number" min="0" value="${stock_sueltas}">
-          </div>
-        </div>
-
-        <!-- 4. PRECIOS DE VENTA (Al Público) -->
-        <label class="swal-section-title">💰 Precios de Venta</label>
-        <div class="swal-grupo">
-          <div class="input-wrapper">
-            <label>Precio Unidad</label>
-            <input id="swal-precio-unidad" class="swal2-input" type="number" min="0" value="${precio_unidad}">
-          </div>
-          <div class="input-wrapper">
-            <label>Precio Caja</label>
-            <input id="swal-precio-caja" class="swal2-input" type="number" min="0" value="${precio_caja}">
+            <label>Unidades Sueltas (Total)</label> 
+            <input id="swal-stock-sueltas" class="swal2-input" type="number" min="0" value="${stockSueltas}">
+            <small style="color:#666; font-size:0.75rem;">(Incluye el contenido de cajas abiertas)</small>
           </div>
         </div>
 
       </div>
     `,
-    width: '600px',
-    focusConfirm: false,
-    showCancelButton: true,
-    confirmButtonText: 'Guardar',
-    cancelButtonText: 'Cancelar',
+    didOpen: () => {
+      const check = document.getElementById('check-tiene-sobres');
+      check.addEventListener('change', (e) => {
+        const isChecked = e.target.checked;
+        document.getElementById('config-normal').style.display = isChecked ? 'none' : 'flex';
+        document.getElementById('config-sobres').style.display = isChecked ? 'flex' : 'none';
+        document.getElementById('div-precio-sobre').style.display = isChecked ? 'block' : 'none';
+      });
+    },
     preConfirm: () => {
-      // 1. Obtener valores
-      const unidadesCaja = parseInt(document.getElementById('swal-unidades-caja').value, 10) || 1;
-      const stockCajas = parseInt(document.getElementById('swal-stock-cajas').value, 10) || 0;
-      const stockSueltas = parseInt(document.getElementById('swal-stock-sueltas').value, 10) || 0;
+      const tieneSobres = document.getElementById('check-tiene-sobres').checked;
       
-      // 2. Calcular Stock Total automáticamente
-      const stockTotal = (stockCajas * unidadesCaja) + stockSueltas;
+      let unidadesTotalCaja = 1;
+      let sobresPorCaja = 1;
+      let unidadesPorSobre = 1;
 
-      const datos = {
-        nombre: document.getElementById('swal-nombre').value.trim(),
-        codigo_barras: document.getElementById('swal-codigo').value.trim(),
-        
-        unidades_por_caja: unidadesCaja,
+      if (tieneSobres) {
+        sobresPorCaja = parseInt(document.getElementById('swal-sobres-caja').value) || 1;
+        unidadesPorSobre = parseInt(document.getElementById('swal-unidades-sobre').value) || 1;
+        unidadesTotalCaja = sobresPorCaja * unidadesPorSobre;
+      } else {
+        unidadesTotalCaja = parseInt(document.getElementById('swal-unidades-simple').value) || 1;
+      }
+
+      // Capturamos el stock simplificado
+      const stCajas = parseInt(document.getElementById('swal-stock-cajas').value) || 0;
+      const stSueltas = parseInt(document.getElementById('swal-stock-sueltas').value) || 0;
+
+      // Calculamos el total
+      const stockTotal = (stCajas * unidadesTotalCaja) + stSueltas;
+
+      return {
+        nombre: document.getElementById('swal-nombre').value,
+        codigo_barras: document.getElementById('swal-codigo').value,
+        tiene_sobres: tieneSobres,
+        unidades_por_caja: unidadesTotalCaja,
+        sobres_por_caja: sobresPorCaja,
+        unidades_por_sobre: unidadesPorSobre,
         costo_caja: parseFloat(document.getElementById('swal-costo-caja').value),
-        
-        // Guardamos el total calculado
-        stock: stockTotal,
-        
+        precio_caja: parseFloat(document.getElementById('swal-precio-caja').value),
+        precio_sobre: parseFloat(document.getElementById('swal-precio-sobre').value),
         precio: parseFloat(document.getElementById('swal-precio-unidad').value),
-        precio_caja: parseFloat(document.getElementById('swal-precio-caja').value)
+        stock: stockTotal
       };
-
-      // 3. Validaciones simples
-      if (!datos.nombre || !datos.codigo_barras || isNaN(datos.precio)) {
-        Swal.showValidationMessage('Nombre, Código y Precio Unidad son obligatorios');
-        return false;
-      }
-      if (datos.unidades_por_caja < 1) {
-        Swal.showValidationMessage('Las unidades por caja deben ser al menos 1');
-        return false;
-      }
-
-      return datos;
     }
   });
   return formValues;
 }
 
-// Renderizado Principal
 export async function renderProductosView(container) {
   if (container.handleProductosClick) container.removeEventListener('click', container.handleProductosClick);
+  const oldSearch = container.querySelector('#search-productos');
+  if (oldSearch && container.handleSearchInput) oldSearch.removeEventListener('input', container.handleSearchInput);
 
   container.innerHTML = `
     <div class="historial-header">
       <h2>Gestión de Productos</h2>
       <button id="btn-nuevo-producto" class="btn-primario">➕ Nuevo Producto</button>
     </div>
+    <div class="search-bar-container" style="margin-bottom: 15px;">
+      <input type="text" id="search-productos" placeholder="🔍 Buscar..." style="width:100%; padding:10px;">
+    </div>
     <div id="productos-lista-container">Cargando...</div>
   `;
 
   const listaContainer = document.getElementById('productos-lista-container');
+  let todosLosProductos = [];
 
   const dibujarTabla = (productos) => {
     if (!productos || productos.length === 0) {
-      listaContainer.innerHTML = '<p>No hay productos registrados.</p>';
+      listaContainer.innerHTML = '<p>No hay productos.</p>';
       return;
     }
     listaContainer.innerHTML = `
@@ -175,30 +194,25 @@ export async function renderProductosView(container) {
         <thead>
           <tr>
             <th>Producto</th>
-            <th>Inventario</th>
-            <th>Precio (Unid)</th>
-            <th>Precio (Caja)</th>
-            <th>Costo (Caja)</th>
+            <th>Stock</th>
+            <th>P. Unidad</th>
+            <th>P. Sobre</th>
+            <th>P. Caja</th>
             <th>Acciones</th>
           </tr>
         </thead>
         <tbody>
           ${productos.map(p => `
             <tr>
+              <td><strong>${p.nombre}</strong><br><small>${p.codigo_barras || ''}</small></td>
               <td>
-                <strong>${p.nombre}</strong><br>
-                <small style="color:#666">${p.codigo_barras}</small>
-              </td>
-              <td>
-                <span style="font-size:1.1em; color:#007bff; font-weight:bold">
-                  ${formatearStock(p.stock, p.unidades_por_caja)}
+                <span style="color:#007bff; font-weight:bold">
+                  ${formatearStock(p.stock, p.unidades_por_caja, p.tiene_sobres, p.unidades_por_sobre)}
                 </span>
-                <br>
-                <small style="color:#666">(${p.stock} total)</small>
               </td>
               <td>$${p.precio.toLocaleString()}</td>
+              <td>${p.tiene_sobres ? `$${p.precio_sobre.toLocaleString()}` : '-'}</td>
               <td>${p.unidades_por_caja > 1 ? `$${p.precio_caja.toLocaleString()}` : '-'}</td>
-              <td>$${p.costo_caja.toLocaleString()}</td>
               <td>
                 <button data-id="${p.id}" data-action="editar">✏️</button>
                 <button data-id="${p.id}" data-action="eliminar">🗑️</button>
@@ -210,50 +224,36 @@ export async function renderProductosView(container) {
     `;
   };
 
-  // Carga Inicial
   try {
-    const productos = await getProductos();
-    dibujarTabla(productos);
-  } catch (error) {
-    listaContainer.innerHTML = `<p class="error-msg">${error.message}</p>`;
-  }
+    todosLosProductos = await getProductos();
+    dibujarTabla(todosLosProductos);
+  } catch (error) { listaContainer.innerHTML = `<p>${error.message}</p>`; }
 
-  // Eventos
+  container.handleSearchInput = (e) => {
+    const t = e.target.value.toLowerCase();
+    dibujarTabla(todosLosProductos.filter(p => p.nombre.toLowerCase().includes(t) || (p.codigo_barras && p.codigo_barras.includes(t))));
+  };
+  document.getElementById('search-productos').addEventListener('input', container.handleSearchInput);
+
   container.handleProductosClick = async (e) => {
     const btn = e.target.closest('button');
     if (!btn) return;
-    
     const id = btn.dataset.id;
     const action = btn.dataset.action;
-
+    
     if (btn.id === 'btn-nuevo-producto') {
       const data = await mostrarFormularioProducto();
-      if (data) {
-        await addProduct(data);
-        showSuccess('Producto creado');
-        dibujarTabla(await getProductos());
-      }
+      if (data) { await addProduct(data); showSuccess('Producto creado'); todosLosProductos = await getProductos(); dibujarTabla(todosLosProductos); document.getElementById('search-productos').value='';}
     } else if (action === 'editar') {
-      const prod = (await getProductos()).find(p => p.id == id);
-      const data = await mostrarFormularioProducto(prod);
-      if (data) {
-        await updateProducto(id, data);
-        showSuccess('Producto actualizado');
-        dibujarTabla(await getProductos());
-      }
+      const p = todosLosProductos.find(x => x.id == id);
+      const data = await mostrarFormularioProducto(p);
+      if (data) { await updateProducto(id, data); showSuccess('Producto actualizado'); todosLosProductos = await getProductos(); dibujarTabla(todosLosProductos); document.getElementById('search-productos').value=''; }
     } else if (action === 'eliminar') {
-      const confirm = await showConfirm('¿Eliminar producto?');
-      if (confirm.isConfirmed) {
-        await deleteProducto(id);
-        showSuccess('Eliminado');
-        dibujarTabla(await getProductos());
-      }
+      if ((await showConfirm('¿Eliminar?')).isConfirmed) { await deleteProducto(id); showSuccess('Eliminado'); todosLosProductos = await getProductos(); dibujarTabla(todosLosProductos); document.getElementById('search-productos').value=''; }
     }
   };
-
   container.addEventListener('click', container.handleProductosClick);
 
-  // Estilos extra para el formulario
   const style = document.createElement('style');
   style.innerHTML = `
     .swal-form-container { text-align: left; font-size: 0.9rem; }

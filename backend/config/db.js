@@ -3,40 +3,32 @@ const path = require("path");
 const { app } = require("electron");
 const bcrypt = require("bcryptjs");
 
-// 1. Configuración de la ruta de la base de datos
+// 1. Configuración de la ruta
 const userDataPath = app.getPath("userData");
 const dbPath = path.join(userDataPath, "farmacia.db");
 
 console.log("--- BASE DE DATOS ---");
 console.log("Ruta:", dbPath);
 
-// 2. Conexión a la base de datos
+// 2. Conexión
 const db = new sqlite3.Database(dbPath, (err) => {
-  if (err) {
-    console.error("❌ Error CRÍTICO de conexión a SQLite:", err.message);
-  } else {
-    console.log("✅ Conexión exitosa a SQLite");
-  }
+  if (err) console.error("❌ Error CRÍTICO:", err.message);
+  else console.log("✅ Conexión exitosa a SQLite");
 });
 
-// Función auxiliar para añadir columnas si no existen (Migraciones seguras)
+// Función auxiliar para actualizaciones sin pérdida de datos
 function addColumnIfNotExists(tableName, columnName, columnDefinition) {
   db.all(`PRAGMA table_info(${tableName})`, (err, columns) => {
-    if (err) {
-      console.error(`Error revisando tabla ${tableName}:`, err.message);
-      return;
-    }
+    if (err) return;
     const exists = columns.some(col => col.name === columnName);
     if (!exists) {
       db.run(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${columnDefinition}`, (err) => {
-        if (err) console.error(`Error añadiendo columna ${columnName}:`, err.message);
-        else console.log(`✅ Columna '${columnName}' añadida a tabla '${tableName}'`);
+        if (!err) console.log(`✅ Columna '${columnName}' añadida.`);
       });
     }
   });
 }
 
-// 3. Inicialización de Tablas y Datos
 db.serialize(() => {
   // --- CREACIÓN DE TABLAS ---
   
@@ -53,7 +45,7 @@ db.serialize(() => {
     )
   `);
 
-  // Ventas (Cabecera)
+  // Ventas
   db.run(`
     CREATE TABLE IF NOT EXISTS ventas (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -62,7 +54,7 @@ db.serialize(() => {
     )
   `);
 
-  // Items de Venta (Detalle)
+  // Items de Venta
   db.run(`
     CREATE TABLE IF NOT EXISTS venta_items (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -76,7 +68,7 @@ db.serialize(() => {
     )
   `);
   
-  // Usuarios (Login)
+  // Usuarios
   db.run(`
     CREATE TABLE IF NOT EXISTS usuarios (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -86,36 +78,38 @@ db.serialize(() => {
     )
   `);
 
-  // Índices para rendimiento
   db.run(`CREATE INDEX IF NOT EXISTS idx_ventas_fecha ON ventas(fecha)`);
 
-  // --- MIGRACIONES (Nuevas columnas) ---
-  // Aseguramos que la BD tenga los campos para Cajas y Costos
+  // --- MIGRACIONES (Todas las columnas nuevas) ---
+  
+  // 1. Configuración de CAJA
   addColumnIfNotExists('productos', 'unidades_por_caja', 'INTEGER NOT NULL DEFAULT 1');
   addColumnIfNotExists('productos', 'precio_caja', 'REAL NOT NULL DEFAULT 0'); 
   addColumnIfNotExists('productos', 'costo_caja', 'REAL NOT NULL DEFAULT 0');  
+  
+  // 2. Configuración de UNIDAD (Base)
   addColumnIfNotExists('productos', 'costo', 'REAL NOT NULL DEFAULT 0');
+
+  // 3. Configuración de SOBRES (Nivel Intermedio)
+  addColumnIfNotExists('productos', 'tiene_sobres', 'INTEGER NOT NULL DEFAULT 0'); // 0 = No, 1 = Sí
+  addColumnIfNotExists('productos', 'sobres_por_caja', 'INTEGER NOT NULL DEFAULT 0');
+  addColumnIfNotExists('productos', 'unidades_por_sobre', 'INTEGER NOT NULL DEFAULT 0');
+  addColumnIfNotExists('productos', 'precio_sobre', 'REAL NOT NULL DEFAULT 0');
+  addColumnIfNotExists('productos', 'costo_sobre', 'REAL NOT NULL DEFAULT 0');
+
+  // 4. Histórico de ventas
   addColumnIfNotExists('venta_items', 'costo_unitario', 'REAL DEFAULT 0');
 
-  // --- ⭐️ CREACIÓN DE USUARIO VIVIANA (Lógica Corregida) ---
-  
-  // Verificamos específicamente si 'viviana' existe
+  // --- USUARIO POR DEFECTO (Viviana) ---
   db.get("SELECT * FROM usuarios WHERE username = ?", ['viviana'], (err, user) => {
-    if (err) return console.error(err);
-    
-    if (!user) {
-      console.log("ℹ️ Usuario 'viviana' no encontrado. Creándolo...");
+    if (!err && !user) {
+      console.log("ℹ️ Creando usuario 'viviana'...");
       const passwordHash = bcrypt.hashSync("viviana1234", 8);
-      
       db.run("INSERT INTO usuarios (username, password) VALUES (?, ?)", ["viviana", passwordHash], (err) => {
-        if (err) console.error("Error creando viviana:", err);
-        else console.log("✅ Usuario creado exitosamente: viviana / viviana1234");
+        if (!err) console.log("✅ Usuario creado: viviana / viviana1234");
       });
-    } else {
-      console.log("ℹ️ El usuario 'viviana' ya existe.");
     }
   });
 });
 
-// 4. EXPORTACIÓN FINAL
 module.exports = db;

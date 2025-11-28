@@ -1,40 +1,40 @@
 import { renderProductosView } from './productosUI.js';
 import { renderVentasView } from './ventasUI.js';
 import { renderHistorialVentasView } from './historialVentasUI.js';
-import { renderReportesView } from './reportesUI.js';
 import { renderLoginView } from './loginUI.js';
-import { renderPerfilView } from './perfilUI.js'; // Importar Perfil
+import { renderPerfilView } from './perfilUI.js';
 import { showConfirm } from './utils/alerts.js';
 
-// Función para verificar si hay sesión activa
+// --- LÓGICA DE SESIÓN ---
+
 function checkAuth() {
-  const token = localStorage.getItem('farmacia_token');
-  return !!token; // Devuelve true si existe, false si no
+  // Verificamos si existe el token en la sesión temporal
+  const token = sessionStorage.getItem('farmacia_token');
+  return !!token;
 }
 
-// Función para cerrar sesión (Acción real)
 function realizarLogout() {
-  localStorage.removeItem('farmacia_token');
-  localStorage.removeItem('farmacia_user');
-  window.location.reload(); // Recargar para volver al login
+  sessionStorage.removeItem('farmacia_token');
+  sessionStorage.removeItem('farmacia_user');
+  window.location.reload(); // Recargar para volver al login limpio
 }
 
-// Función para iniciar la Interfaz Principal (Solo si está logueado)
-function initApp(appContainer) {
-  const user = localStorage.getItem('farmacia_user') || 'Usuario';
+// --- INICIO DE LA APLICACIÓN (POST-LOGIN) ---
 
-  // Dibujamos el menú y el contenedor
+function initApp(appContainer) {
+  const user = sessionStorage.getItem('farmacia_user') || 'Usuario';
+
+  // 1. Dibujar la estructura base (Menú + Contenedor de Vistas)
   appContainer.innerHTML = `
     <div class="app-layout">
       <nav class="menu">
         <button id="btnVentas" class="active">🛒 Punto de Venta</button>
-        <button id="btnProductos">💊 Productos</button>
-        <button id="btnHistorial">📅 Historial</button>
-        <button id="btnReportes">🏆 Reportes</button>
+        <button id="btnProductos">📦 Productos</button>
+        <!-- ⭐️ Botón Unificado -->
+        <button id="btnHistorial">📊 Historial y Reportes</button>
         
         <div class="menu-spacer"></div>
         
-        <!-- Botón Perfil -->
         <button id="btnPerfil" style="color:#555;">⚙️ Perfil</button>
         <button id="btnLogout" style="color: #dc3545; font-weight: bold;">🚪 Salir (${user})</button>
       </nav>
@@ -42,7 +42,7 @@ function initApp(appContainer) {
     </div>
   `;
 
-  // Estilos layout
+  // Estilos para el layout (Flexbox para empujar botones a la derecha)
   const style = document.createElement('style');
   style.innerHTML = `
     .menu-spacer { flex: 1; } 
@@ -51,16 +51,16 @@ function initApp(appContainer) {
   appContainer.appendChild(style);
 
   const vista = document.getElementById("vista");
-
-  // --- Asignar Eventos del Menú ---
   
+  // Helper para resaltar el botón activo
   const botones = document.querySelectorAll('.menu button:not(#btnLogout)');
-  
   const activarBoton = (btnId) => {
     botones.forEach(b => b.classList.remove('active'));
     const btn = document.getElementById(btnId);
     if (btn) btn.classList.add('active');
   };
+
+  // --- 2. ASIGNAR EVENTOS A LOS BOTONES ---
 
   document.getElementById("btnVentas").addEventListener("click", () => {
     activarBoton('btnVentas');
@@ -72,50 +72,39 @@ function initApp(appContainer) {
     renderProductosView(vista);
   });
   
+  // Este botón ahora carga la vista unificada (Historial + Top Ventas)
   document.getElementById("btnHistorial").addEventListener("click", () => {
     activarBoton('btnHistorial');
     renderHistorialVentasView(vista);
   });
 
-  document.getElementById("btnReportes").addEventListener("click", () => {
-    activarBoton('btnReportes');
-    renderReportesView(vista);
-  });
-
-  // Evento Perfil
   document.getElementById("btnPerfil").addEventListener("click", () => { 
     activarBoton('btnPerfil'); 
     renderPerfilView(vista); 
   });
   
-  // Lógica para el botón Salir con SweetAlert
   document.getElementById("btnLogout").addEventListener("click", async () => {
-    const confirmacion = await showConfirm(
-      '¿Cerrar Sesión?', 
-      '¿Estás seguro de que deseas salir del sistema?'
-    );
-    
-    if (confirmacion.isConfirmed) {
-      realizarLogout();
-    }
+    const confirmacion = await showConfirm('¿Cerrar Sesión?', '¿Deseas salir del sistema?');
+    if (confirmacion.isConfirmed) realizarLogout();
   });
 
-  // Carga inicial por defecto (Punto de Venta)
+  // 3. CARGA INICIAL POR DEFECTO
   activarBoton('btnVentas');
   renderVentasView(vista);
 }
 
-// --- PUNTO DE ENTRADA ---
+// --- PUNTO DE ENTRADA PRINCIPAL ---
+
 document.addEventListener("DOMContentLoaded", () => {
   const app = document.getElementById("app");
 
   if (checkAuth()) {
-    // Si ya hay token guardado, entramos directo
+    // Si hay sesión activa, cargamos la app
     initApp(app);
   } else {
     // Si no, mostramos el Login
     renderLoginView(app, () => {
-      // Esta función se ejecuta CUANDO el login es exitoso
+      // Callback: Se ejecuta cuando el login es exitoso
       initApp(app);
     });
   }

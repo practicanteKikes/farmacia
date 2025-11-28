@@ -21,21 +21,24 @@ body {
   margin: 0;
   background-color: var(--background-color);
   color: var(--text-color);
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  min-height: 100vh;
+  /* ⭐️ AJUSTE: Altura fija y sin scroll en el body para manejarlo dentro de la app */
+  height: 100vh;
+  overflow: hidden;
   padding: 20px;
   box-sizing: border-box;
 }
 
 #app {
   width: 100%;
-  max-width: 1200px;
+  height: 100%;
+  max-width: 1200px; /* Volvemos a tu ancho máximo original */
+  margin: 0 auto;    /* Centrado */
   background: white;
   border-radius: 8px;
   box-shadow: var(--card-shadow);
-  overflow: hidden; /* Para que los bordes redondeados se apliquen bien */
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 h2 {
@@ -51,6 +54,8 @@ h2 {
   background-color: var(--light-gray);
   padding: 10px 20px;
   border-bottom: 1px solid var(--gray);
+  flex-shrink: 0;
+  overflow-x: auto;
 }
 
 .menu button {
@@ -64,18 +69,25 @@ h2 {
   color: var(--dark-gray);
   border-radius: 6px;
   transition: background-color 0.2s, color 0.2s;
+  white-space: nowrap;
 }
 
-.menu button:hover {
+.menu button:hover, .menu button.active {
   background-color: var(--gray);
   color: var(--text-color);
+  font-weight: 600;
 }
 
+/* --- Contenedor de Vistas (Scrollable) --- */
 #vista {
   padding: 25px;
+  /* ⭐️ AQUÍ ESTÁ LA MAGIA: Scroll vertical automático solo en el contenido */
+  overflow-y: auto; 
+  flex-grow: 1;
+  height: 100%;
 }
 
-/* --- Formularios --- */
+/* --- Formularios e Inputs Generales --- */
 form {
   display: flex;
   gap: 10px;
@@ -84,28 +96,66 @@ form {
   flex-wrap: wrap;
 }
 
+/* Aplicamos estilos a todos los inputs comunes */
 form input[type="text"],
-form input[type="number"] {
+form input[type="number"],
+form input[type="date"],
+form input[type="password"],
+.swal2-input {
   padding: 10px;
   border: 1px solid var(--gray);
   border-radius: 6px;
   font-size: 14px;
-  flex: 1; /* Hace que los inputs se expandan */
+  flex: 1;
+  min-width: 150px;
+  font-family: 'Poppins', sans-serif;
 }
 
-form button[type="submit"], .btn-primary {
+.btn-primary, .btn-secundario, form button[type="submit"] {
   padding: 10px 20px;
   border: none;
   border-radius: 6px;
-  background-color: var(--success-color);
-  color: white;
   font-weight: 500;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: opacity 0.2s;
 }
 
-form button[type="submit"]:hover, .btn-primary:hover {
-  background-color: var(--success-hover);
+.btn-primary, .btn-primario, form button[type="submit"] {
+  background-color: var(--success-color);
+  color: white;
+}
+
+.btn-secundario {
+  background-color: var(--light-gray);
+  color: var(--text-color);
+  border: 1px solid var(--gray);
+}
+
+.btn-primary:hover { opacity: 0.9; }
+.btn-secundario:hover { background-color: var(--gray); }
+
+/* --- 🔍 ESTILOS DEL BUSCADOR DE PRODUCTOS (NUEVO) --- */
+.search-bar-container {
+  margin-bottom: 20px;
+}
+
+#search-productos {
+  width: 100%;
+  padding: 12px 15px;
+  font-size: 16px;
+  border: 1px solid var(--gray);
+  border-radius: 8px;
+  box-sizing: border-box;
+  transition: all 0.3s ease;
+  background-color: #fdfdfd;
+  font-family: 'Poppins', sans-serif;
+}
+
+#search-productos:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+  outline: none;
+  background-color: white;
 }
 
 /* --- Tablas --- */
@@ -124,14 +174,17 @@ form button[type="submit"]:hover, .btn-primary:hover {
 .tabla-productos thead th {
   background-color: var(--light-gray);
   font-weight: 600;
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 .tabla-productos tbody tr:nth-child(even) {
-  background-color: var(--light-gray);
+  background-color: #fcfcfc;
 }
 
 .tabla-productos tbody tr:hover {
-  background-color: #e2e6ea;
+  background-color: #f1f3f5;
 }
 
 .tabla-productos button {
@@ -140,76 +193,108 @@ form button[type="submit"]:hover, .btn-primary:hover {
   cursor: pointer;
   font-size: 18px;
   padding: 5px;
+  transition: transform 0.1s;
 }
+.tabla-productos button:hover { transform: scale(1.1); }
 
 /* --- Vista de Ventas --- */
 .vista-ventas {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr; /* Volvemos a 50% - 50% como querías */
   gap: 25px;
+  /* Quitamos la altura fija para que use el scroll principal de #vista */
+}
+
+@media (max-width: 900px) {
+  .vista-ventas {
+    grid-template-columns: 1fr;
+  }
 }
 
 .panel-busqueda, .panel-carrito {
   padding: 20px;
   border: 1px solid var(--gray);
   border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  background: white;
+  overflow: hidden;
 }
 
 #input-busqueda {
   width: 100%;
-  padding: 10px;
+  padding: 12px;
   font-size: 16px;
   box-sizing: border-box;
+  margin-bottom: 10px;
+  border: 1px solid var(--primary-color);
+  border-radius: 6px;
+}
+
+#resultados-busqueda, #carrito-items {
+  overflow-y: auto; /* Scroll interno si la lista es muy larga */
+  max-height: 400px; /* Limite de altura para forzar scroll interno */
+  flex-grow: 1;
 }
 
 .lista-resultados li {
   list-style: none;
-  padding: 10px;
+  padding: 12px;
   cursor: pointer;
   border-bottom: 1px solid var(--light-gray);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .lista-resultados li:hover {
-  background-color: var(--light-gray);
+  background-color: #e9ecef;
 }
 
 .lista-carrito li {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 0;
+  padding: 10px 0;
   list-style: none;
+  border-bottom: 1px dashed #eee;
 }
+
+.carrito-info { display: flex; flex-direction: column; }
+.carrito-nombre { font-weight: 500; }
 
 .carrito-controles {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .btn-cantidad {
   border: 1px solid var(--gray);
   background: white;
-  width: 25px;
-  height: 25px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   cursor: pointer;
+  font-weight: bold;
+  color: var(--primary-color);
 }
+.btn-cantidad:hover { background-color: var(--light-gray); }
 
 .carrito-total {
-  margin-top: 20px;
+  margin-top: auto;
   padding-top: 15px;
   border-top: 2px solid var(--text-color);
   text-align: right;
-  font-size: 1.2em;
+  font-size: 1.3em;
   font-weight: 600;
 }
 
 #btn-finalizar-venta {
   width: 100%;
-  padding: 12px;
+  padding: 15px;
   margin-top: 15px;
-  font-size: 16px;
+  font-size: 18px;
   background-color: var(--primary-color);
   color: white;
   border: none;
@@ -218,16 +303,10 @@ form button[type="submit"]:hover, .btn-primary:hover {
   transition: background-color 0.2s;
 }
 
-#btn-finalizar-venta:hover {
-  background-color: var(--primary-hover);
-}
+#btn-finalizar-venta:hover { background-color: var(--primary-hover); }
+#btn-finalizar-venta:disabled { background-color: var(--dark-gray); cursor: not-allowed; }
 
-#btn-finalizar-venta:disabled {
-  background-color: var(--dark-gray);
-  cursor: not-allowed;
-}
-
-/* --- Historial de Ventas --- */
+/* --- Historial y Reportes --- */
 .historial-header {
   display: flex;
   justify-content: space-between;
@@ -235,51 +314,9 @@ form button[type="submit"]:hover, .btn-primary:hover {
   margin-bottom: 20px;
 }
 
-.total-mes-card {
-  background: var(--light-gray);
-  padding: 15px 20px;
-  border-radius: 8px;
-  border: 1px solid var(--gray);
-  text-align: right;
-}
-.total-mes-card strong {
-  display: block;
-  color: var(--dark-gray);
-}
-.total-mes-card span {
-  font-size: 1.5em;
-  font-weight: 600;
-  color: var(--success-color);
-}
-
-.venta-card {
-  background: white;
-  border: 1px solid var(--gray);
-  border-radius: 8px;
-  margin-bottom: 15px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-}
-
-.venta-card-header, .venta-card-footer {
-  display: flex;
-  justify-content: space-between;
-  padding: 10px 15px;
-  background-color: var(--light-gray);
-}
-
-.venta-card-body {
-  padding: 15px;
-  list-style: none;
-  margin: 0;
-}
-.venta-card-body li {
-  display: flex;
-  justify-content: space-between;
-  padding: 5px 0;
-}
 .cierre-diario-controles {
   display: flex;
-  gap: 10px;
+  gap: 15px;
   align-items: center;
   margin-bottom: 25px;
   flex-wrap: wrap;
@@ -289,89 +326,25 @@ form button[type="submit"]:hover, .btn-primary:hover {
   border: 1px solid var(--gray);
 }
 
-.control-grupo {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex: 1 1 250px; /* Permite que crezca y se envuelva */
-}
-
-.control-grupo label {
-  font-weight: 500;
-  color: var(--dark-gray);
-}
-
-/* Estilo para el input de fecha (reutilizando estilos de formulario) */
-.cierre-diario-controles input[type="date"] {
-  padding: 10px;
-  border: 1px solid var(--gray);
-  border-radius: 6px;
-  font-size: 14px;
-  font-family: 'Poppins', sans-serif;
-  background-color: white;
-  min-width: 150px;
-}
-
-/* Botón secundario (para "Ver Mes Actual") */
-.btn-secundario {
-  padding: 10px 20px;
-  border: none;
-  border-radius: 6px;
-  background-color: var(--light-gray);
-  color: var(--dark-gray);
-  font-weight: 500;
-  cursor: pointer;
-  transition: background-color 0.2s;
-  border: 1px solid var(--gray);
-}
-
-.btn-secundario:hover {
-  background-color: var(--gray);
-  color: var(--text-color);
-}
-
-/* Contenedor para las tarjetas de resumen (Ventas, Costos, Ganancia) */
 .cierre-diario-resumen {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 15px;
   margin-bottom: 25px;
 }
 
-/* Estilo para CADA tarjeta de resumen */
 .resumen-card {
   background: white; 
-  padding: 15px 20px;
+  padding: 20px;
   border-radius: 8px;
   border: 1px solid var(--gray);
   box-shadow: var(--card-shadow);
-  text-align: left;
 }
 
-.resumen-card strong {
-  display: block;
-  color: var(--dark-gray);
-  font-size: 0.9em;
-  font-weight: 500;
-  margin-bottom: 5px;
-  text-transform: uppercase; 
-}
-
-.resumen-card span {
-  font-size: 1.7em; 
-  font-weight: 600;
-  color: var(--text-color);
-}
-
-
-.cierre-diario-resumen .ganancia {
-  border-left: 5px solid var(--success-color);
-}
-
-.cierre-diario-resumen .ganancia span {
-  color: var(--success-color);
-}
-
+.resumen-card strong { display: block; color: var(--dark-gray); margin-bottom: 5px; font-size: 0.9em; text-transform: uppercase; }
+.resumen-card span { font-size: 1.8em; font-weight: 600; color: var(--text-color); }
+.resumen-card.ganancia { border-left: 5px solid var(--success-color); }
+.resumen-card.ganancia span { color: var(--success-color); }
 
 .ganancia-producto {
   font-size: 0.85em;
@@ -380,6 +353,34 @@ form button[type="submit"]:hover, .btn-primary:hover {
   margin: 0 10px;
 }
 
+/* ⭐️ VOLVEMOS AL ESTILO DE LISTA VERTICAL (como estaba antes) */
+.historial-ventas-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.venta-card {
+  background: white;
+  border: 1px solid var(--gray);
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  display: flex;
+  flex-direction: column;
+}
+
+.venta-card-header {
+  background-color: var(--light-gray);
+  padding: 10px 15px;
+  border-bottom: 1px solid #eee;
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.9em;
+}
+
+.venta-card-body { padding: 15px; list-style: none; margin: 0; }
+.venta-card-body li { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px dashed #f0f0f0; }
+.venta-card-footer { padding: 10px 15px; background-color: #fdfdfd; border-top: 1px solid #eee; text-align: right; font-weight: bold; color: var(--primary-color); }
 
 .error-msg {
   color: var(--danger-color);
