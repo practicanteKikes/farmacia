@@ -1,44 +1,51 @@
-// backend/config/db.js
 const sqlite3 = require("sqlite3").verbose();
 const path = require("path");
-// 1. Importamos 'app' desde Electron para acceder a rutas del sistema
 const { app } = require("electron");
+const bcrypt = require("bcryptjs");
 
-// 2. Obtenemos la ruta segura para guardar datos de la aplicación
-// Esto será una carpeta como: C:\Users\TuUsuario\AppData\Roaming\farmacia-app
+// 1. Configuración de la ruta
 const userDataPath = app.getPath("userData");
-
-// 3. Creamos la ruta completa al archivo de la base de datos
-// El archivo 'farmacia.db' ahora vivirá dentro de esa carpeta segura.
 const dbPath = path.join(userDataPath, "farmacia.db");
 
-console.log("Ruta de la base de datos:", dbPath); // Muy útil para saber dónde se guarda
+console.log("--- BASE DE DATOS ---");
+console.log("Ruta:", dbPath);
 
-// Conexión a SQLite (el resto del código es igual)
+// 2. Conexión
 const db = new sqlite3.Database(dbPath, (err) => {
-  if (err) {
-    // Si hay un error aquí, la aplicación instalada no funcionará
-    console.error("❌ Error CRÍTICO al conectar con SQLite:", err.message);
-  } else {
-    console.log("✅ Conectado a la base de datos SQLite en:", dbPath);
-  }
+  if (err) console.error("❌ Error CRÍTICO:", err.message);
+  else console.log("✅ Conexión exitosa a SQLite");
 });
 
-// Crear tablas si no existen
+// Función auxiliar para actualizaciones sin pérdida de datos
+function addColumnIfNotExists(tableName, columnName, columnDefinition) {
+  db.all(`PRAGMA table_info(${tableName})`, (err, columns) => {
+    if (err) return;
+    const exists = columns.some(col => col.name === columnName);
+    if (!exists) {
+      db.run(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${columnDefinition}`, (err) => {
+        if (!err) console.log(`✅ Columna '${columnName}' añadida.`);
+      });
+    }
+  });
+}
+
 db.serialize(() => {
+  // --- CREACIÓN DE TABLAS ---
+  
   // Productos
   db.run(`
     CREATE TABLE IF NOT EXISTS productos (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       nombre TEXT NOT NULL,
       codigo_barras TEXT UNIQUE,
-      precio REAL NOT NULL,
       stock INTEGER DEFAULT 0,
+      precio REAL NOT NULL,
+      costo REAL DEFAULT 0,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `);
 
-  // Ventas (cabecera)
+  // Ventas
   db.run(`
     CREATE TABLE IF NOT EXISTS ventas (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -47,7 +54,7 @@ db.serialize(() => {
     )
   `);
 
-  // Detalle de ventas (items)
+  // Items de Venta
   db.run(`
     CREATE TABLE IF NOT EXISTS venta_items (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -55,12 +62,13 @@ db.serialize(() => {
       producto_id INTEGER NOT NULL,
       cantidad INTEGER NOT NULL,
       precio_unitario REAL NOT NULL,
+      costo_unitario REAL DEFAULT 0,
       FOREIGN KEY (venta_id) REFERENCES ventas (id),
       FOREIGN KEY (producto_id) REFERENCES productos (id)
     )
   `);
-
-  // Usuarios (para login/token)
+  
+  // Usuarios
   db.run(`
     CREATE TABLE IF NOT EXISTS usuarios (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -69,9 +77,39 @@ db.serialize(() => {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `);
-  
-  // Índice para que las búsquedas por fecha sean rápidas
+
   db.run(`CREATE INDEX IF NOT EXISTS idx_ventas_fecha ON ventas(fecha)`);
+
+  // --- MIGRACIONES (Todas las columnas nuevas) ---
+  
+  // 1. Configuración de CAJA
+  addColumnIfNotExists('productos', 'unidades_por_caja', 'INTEGER NOT NULL DEFAULT 1');
+  addColumnIfNotExists('productos', 'precio_caja', 'REAL NOT NULL DEFAULT 0'); 
+  addColumnIfNotExists('productos', 'costo_caja', 'REAL NOT NULL DEFAULT 0');  
+  
+  // 2. Configuración de UNIDAD (Base)
+  addColumnIfNotExists('productos', 'costo', 'REAL NOT NULL DEFAULT 0');
+
+  // 3. Configuración de SOBRES (Nivel Intermedio)
+  addColumnIfNotExists('productos', 'tiene_sobres', 'INTEGER NOT NULL DEFAULT 0'); // 0 = No, 1 = Sí
+  addColumnIfNotExists('productos', 'sobres_por_caja', 'INTEGER NOT NULL DEFAULT 0');
+  addColumnIfNotExists('productos', 'unidades_por_sobre', 'INTEGER NOT NULL DEFAULT 0');
+  addColumnIfNotExists('productos', 'precio_sobre', 'REAL NOT NULL DEFAULT 0');
+  addColumnIfNotExists('productos', 'costo_sobre', 'REAL NOT NULL DEFAULT 0');
+
+  // 4. Histórico de ventas
+  addColumnIfNotExists('venta_items', 'costo_unitario', 'REAL DEFAULT 0');
+
+  // --- USUARIO POR DEFECTO (Viviana) ---
+  db.get("SELECT * FROM usuarios WHERE username = ?", ['viviana'], (err, user) => {
+    if (!err && !user) {
+      console.log("ℹ️ Creando usuario 'viviana'...");
+      const passwordHash = bcrypt.hashSync("viviana1234", 8);
+      db.run("INSERT INTO usuarios (username, password) VALUES (?, ?)", ["viviana", passwordHash], (err) => {
+        if (!err) console.log("✅ Usuario creado: viviana / viviana1234");
+      });
+    }
+  });
 });
 
 module.exports = db;

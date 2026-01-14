@@ -1,21 +1,13 @@
 {
   "name": "farmacia-app",
   "version": "1.0.0",
-  "description": "Sistema de inventario y ventas para farmacia con Node.js, Express, SQLite y Electron",
+  "description": "Sistema de inventario y ventas para farmacia",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "build": "electron-builder",
-    "postinstall": "electron-rebuild"
+    "build": "electron-builder"
   },
-  "keywords": [
-    "electron",
-    "nodejs",
-    "express",
-    "sqlite",
-    "farmacia",
-    "inventario"
-  ],
+  "keywords": [],
   "author": "TuNombre",
   "license": "MIT",
   "dependencies": {
@@ -25,33 +17,33 @@
     "express": "^4.21.2",
     "jsonwebtoken": "^9.0.2",
     "sqlite3": "^5.1.7",
-    "sweetalert": "^2.1.2",
     "sweetalert2": "^11.23.0"
   },
   "devDependencies": {
-    "concurrently": "^8.2.2",
     "electron": "^31.7.7",
-    "electron-builder": "^26.0.12",
-    "electron-rebuild": "^3.2.9",
-    "nodemon": "^3.1.10"
+    "electron-builder": "^26.0.12"
   },
   "build": {
-    "appId": "com.farmacia.sistemainventario",
+    "appId": "com.farmacia.app",
     "productName": "Sistema Farmacia",
-    "files": [
-      "**/*",
-      "!node_modules/electron-builder/**/*"
-    ],
     "directories": {
       "output": "dist"
     },
+    "files": [
+      "package.json",
+      "main.js",
+      "backend/**/*",
+      "frontend/**/*",
+      "node_modules/**/*"
+    ],
     "win": {
-      "target": "nsis",
-      "icon": "build/icon.ico"
+      "target": "nsis"
     },
     "nsis": {
       "oneClick": false,
-      "allowToChangeInstallationDirectory": true
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
     }
   }
 }
