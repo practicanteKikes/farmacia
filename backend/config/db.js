@@ -86,7 +86,7 @@ db.serialize(() => {
   addColumnIfNotExists('productos', 'unidades_por_caja', 'INTEGER NOT NULL DEFAULT 1');
   addColumnIfNotExists('productos', 'precio_caja', 'REAL NOT NULL DEFAULT 0'); 
   addColumnIfNotExists('productos', 'costo_caja', 'REAL NOT NULL DEFAULT 0');  
-  
+  addColumnIfNotExists('usuarios', 'rol', "TEXT CHECK(rol IN ('admin', 'vendedora')) NOT DEFAULT 'vendedora'");
   // 2. Configuración de UNIDAD (Base)
   addColumnIfNotExists('productos', 'costo', 'REAL NOT NULL DEFAULT 0');
 
@@ -102,14 +102,27 @@ db.serialize(() => {
 
   // --- USUARIO POR DEFECTO (Viviana) ---
   db.get("SELECT * FROM usuarios WHERE username = ?", ['viviana'], (err, user) => {
-    if (!err && !user) {
-      console.log("ℹ️ Creando usuario 'viviana'...");
-      const passwordHash = bcrypt.hashSync("viviana1234", 8);
-      db.run("INSERT INTO usuarios (username, password) VALUES (?, ?)", ["viviana", passwordHash], (err) => {
-        if (!err) console.log("✅ Usuario creado: viviana / viviana1234");
-      });
-    }
-  });
+  if (!err && !user) {
+    console.log("ℹ️ Creando usuario admin 'viviana'...");
+    const passwordHash = bcrypt.hashSync("viviana1234", 8);
+    // Insertamos con rol 'admin'
+    db.run("INSERT INTO usuarios (username, password, rol) VALUES (?, ?, ?)", 
+      ["viviana", passwordHash, "admin"], 
+      (err) => {
+        if (!err) console.log("✅ Admin creado: viviana / viviana1234");
+      }
+    );
+  }
+});
+
+// --- EJEMPLO: CREAR UNA VENDEDORA ---
+db.get("SELECT * FROM usuarios WHERE username = ?", ['empleado1'], (err, user) => {
+  if (!err && !user) {
+    const pass = bcrypt.hashSync("ventas123", 8);
+    db.run("INSERT INTO usuarios (username, password, rol) VALUES (?, ?, ?)", 
+      ["empleado1", pass, "vendedora"]);
+  }
+});
 });
 
 module.exports = db;

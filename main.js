@@ -1,4 +1,4 @@
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow,ipcMain } = require('electron');
 const path = require('path');
 
 // 1. 🏁 FUNCIÓN PARA INICIAR EL SERVIDOR BACKEND
@@ -61,4 +61,35 @@ app.whenReady().then(() => {
 // Salir cuando todas las ventanas estén cerradas (excepto en macOS)
 app.on('window-all-closed', function () {
   if (process.platform !== 'darwin') app.quit();
+});
+// Ejemplo de canal IPC para actualizar productos
+ipcMain.handle("productos:actualizar", async (event, datosProducto, userRol) => {
+    // VALIDACIÓN DE SEGURIDAD
+    if (userRol !== 'admin') {
+        return { success: false, message: "No tienes permiso para editar productos." };
+    }
+
+    return new Promise((resolve) => {
+        const sql = `UPDATE productos SET nombre = ?, precio = ? WHERE id = ?`;
+        db.run(sql, [datosProducto.nombre, datosProducto.precio, datosProducto.id], (err) => {
+            if (err) resolve({ success: false, err });
+            else resolve({ success: true });
+        });
+    });
+});
+// Escucha la petición de actualización de productos
+ipcMain.handle("actualizar-producto", async (event, datos, rolUsuario) => {
+    if (rolUsuario !== "admin") {
+        console.log("🚫 Intento de edición no autorizado por:", rolUsuario);
+        return { success: false, message: "No tienes permiso para editar." };
+    }
+
+    // Si es admin, ejecutamos el SQL
+    return new Promise((resolve) => {
+        const sql = `UPDATE productos SET nombre = ?, precio = ? WHERE id = ?`;
+        db.run(sql, [datos.nombre, datos.precio, datos.id], (err) => {
+            if (err) resolve({ success: false, message: err.message });
+            else resolve({ success: true });
+        });
+    });
 });
