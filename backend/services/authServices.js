@@ -1,5 +1,5 @@
 const db = require("../config/db");
-const bcrypt = require("bcrypt");
+const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
 const SECRET_KEY = "supersecreto"; // ⚠️ cambiar a una variable de entorno
