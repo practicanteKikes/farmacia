@@ -88,6 +88,11 @@ async function mostrarFormularioProducto(prod = {}) {
           </div>
         </div>
 
+        <div style="margin-top:10px;">
+          <label class="swal-label">📅 Fecha de Vencimiento</label>
+          <input id="swal-fecha-vencimiento" class="swal2-input" type="date" value="${prod.fecha_vencimiento ? prod.fecha_vencimiento.split('T')[0] : ''}">
+        </div>
+
         <label class="swal-label">💰 Precios de Venta</label>
         <div class="swal-grupo">
           <div class="input-wrapper"><label>P. Caja</label><input id="swal-precio-caja" class="swal2-input" type="number" value="${prod.precio_caja || ''}"></div>,
@@ -150,6 +155,7 @@ async function mostrarFormularioProducto(prod = {}) {
       return {
         nombre: document.getElementById('swal-nombre').value,
         codigo_barras: document.getElementById('swal-codigo').value,
+        fecha_vencimiento: document.getElementById('swal-fecha-vencimiento').value || null,
         tiene_sobres: tieneSobres,
         unidades_por_caja: unidadesTotalCaja,
         sobres_por_caja: sobresPorCaja,
@@ -203,6 +209,7 @@ export async function renderProductosView(container) {
             <th>P. Unidad</th>
             <th>P. Sobre</th>
             <th>P. Caja</th>
+            <th>Venc.</th>
             ${isAdmin ? '<th>Acciones</th>' : ''}
           </tr>
         </thead>
@@ -215,9 +222,10 @@ export async function renderProductosView(container) {
                   ${formatearStock(p.stock, p.unidades_por_caja, p.tiene_sobres, p.unidades_por_sobre)}
                 </span>
               </td>
-              <td>$${p.precio.toLocaleString()}</td>
-              <td>${p.tiene_sobres ? `$${p.precio_sobre.toLocaleString()}` : '-'}</td>
-              <td>${p.unidades_por_caja > 1 ? `$${p.precio_caja.toLocaleString()}` : '-'}</td>
+              <td>$${(p.precio||0).toLocaleString()}</td>
+              <td>${p.tiene_sobres ? `$${(p.precio_sobre||0).toLocaleString()}` : '-'}</td>
+              <td>${p.unidades_por_caja > 1 ? `$${(p.precio_caja||0).toLocaleString()}` : '-'}</td>
+              <td>${p.fecha_vencimiento ? (new Date(p.fecha_vencimiento)).toLocaleDateString() : '-'}</td>
               ${isAdmin ? `<td>
                 <button data-id="${p.id}" data-action="editar">✏️</button>
                 <button data-id="${p.id}" data-action="eliminar">🗑️</button>

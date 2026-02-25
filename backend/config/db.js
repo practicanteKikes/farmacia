@@ -104,6 +104,9 @@ db.serialize(() => {
   // 5. Agregar rol a usuarios existentes
   addColumnIfNotExists('usuarios', 'role', 'TEXT DEFAULT \'vendedor\'');
 
+  // 6. Fecha de vencimiento
+  addColumnIfNotExists('productos', 'fecha_vencimiento', "TEXT DEFAULT NULL");
+
   // --- USUARIOS POR DEFECTO ---
   // Viviana (Administrador)
   db.get("SELECT * FROM usuarios WHERE username = ?", ['viviana'], (err, user) => {
