@@ -74,6 +74,7 @@ db.serialize(() => {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       username TEXT UNIQUE NOT NULL,
       password TEXT NOT NULL,
+      role TEXT DEFAULT 'vendedor',
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `);
@@ -100,13 +101,28 @@ db.serialize(() => {
   // 4. Histórico de ventas
   addColumnIfNotExists('venta_items', 'costo_unitario', 'REAL DEFAULT 0');
 
-  // --- USUARIO POR DEFECTO (Viviana) ---
+  // 5. Agregar rol a usuarios existentes
+  addColumnIfNotExists('usuarios', 'role', 'TEXT DEFAULT \'vendedor\'');
+
+  // --- USUARIOS POR DEFECTO ---
+  // Viviana (Administrador)
   db.get("SELECT * FROM usuarios WHERE username = ?", ['viviana'], (err, user) => {
     if (!err && !user) {
       console.log("ℹ️ Creando usuario 'viviana'...");
       const passwordHash = bcrypt.hashSync("viviana1234", 8);
-      db.run("INSERT INTO usuarios (username, password) VALUES (?, ?)", ["viviana", passwordHash], (err) => {
-        if (!err) console.log("✅ Usuario creado: viviana / viviana1234");
+      db.run("INSERT INTO usuarios (username, password, role) VALUES (?, ?, ?)", ["viviana", passwordHash, "admin"], (err) => {
+        if (!err) console.log("✅ Usuario creado: viviana / viviana1234 [ADMIN]");
+      });
+    }
+  });
+
+  // Vendedora (Vendedor)
+  db.get("SELECT * FROM usuarios WHERE username = ?", ['vendedora'], (err, user) => {
+    if (!err && !user) {
+      console.log("ℹ️ Creando usuario 'vendedora'...");
+      const passwordHash = bcrypt.hashSync("vendedora1234", 8);
+      db.run("INSERT INTO usuarios (username, password, role) VALUES (?, ?, ?)", ["vendedora", passwordHash, "vendedor"], (err) => {
+        if (!err) console.log("✅ Usuario creado: vendedora / vendedora1234 [VENDEDOR]");
       });
     }
   });

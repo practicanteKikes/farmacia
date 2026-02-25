@@ -138,6 +138,7 @@ export function renderLoginView(container, onLoginSuccess) {
       // GUARDAR SESIÓN: Esto es lo más importante
       localStorage.setItem('farmacia_token', result.token);
       localStorage.setItem('farmacia_user', result.username);
+      localStorage.setItem('farmacia_role', result.role);
       
       showSuccess(`¡Bienvenido, ${result.username}!`);
       

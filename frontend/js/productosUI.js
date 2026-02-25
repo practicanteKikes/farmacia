@@ -170,10 +170,15 @@ export async function renderProductosView(container) {
   const oldSearch = container.querySelector('#search-productos');
   if (oldSearch && container.handleSearchInput) oldSearch.removeEventListener('input', container.handleSearchInput);
 
+  const role = localStorage.getItem('farmacia_role') || 'vendedor';
+  const isAdmin = role === 'admin';
+
+  console.log(`👤 Usuario actual - Rol: ${role}, ¿Es Admin?: ${isAdmin}`);
+
   container.innerHTML = `
     <div class="historial-header">
-      <h2>Gestión de Productos</h2>
-      <button id="btn-nuevo-producto" class="btn-primario">➕ Nuevo Producto</button>
+      <h2>Gestión de Productos ${isAdmin ? '(Modo Admin)' : '(Modo Lectura)'}</h2>
+      ${isAdmin ? '<button id="btn-nuevo-producto" class="btn-primario">➕ Nuevo Producto</button>' : '<p style="color: #999; font-size: 0.9rem;">Solo lectura: requiere permisos de admin</p>'}
     </div>
     <div class="search-bar-container" style="margin-bottom: 15px;">
       <input type="text" id="search-productos" placeholder="🔍 Buscar..." style="width:100%; padding:10px;">
@@ -198,7 +203,7 @@ export async function renderProductosView(container) {
             <th>P. Unidad</th>
             <th>P. Sobre</th>
             <th>P. Caja</th>
-            <th>Acciones</th>
+            ${isAdmin ? '<th>Acciones</th>' : ''}
           </tr>
         </thead>
         <tbody>
@@ -213,10 +218,10 @@ export async function renderProductosView(container) {
               <td>$${p.precio.toLocaleString()}</td>
               <td>${p.tiene_sobres ? `$${p.precio_sobre.toLocaleString()}` : '-'}</td>
               <td>${p.unidades_por_caja > 1 ? `$${p.precio_caja.toLocaleString()}` : '-'}</td>
-              <td>
+              ${isAdmin ? `<td>
                 <button data-id="${p.id}" data-action="editar">✏️</button>
                 <button data-id="${p.id}" data-action="eliminar">🗑️</button>
-              </td>
+              </td>` : ''}
             </tr>
           `).join('')}
         </tbody>
@@ -236,6 +241,11 @@ export async function renderProductosView(container) {
   document.getElementById('search-productos').addEventListener('input', container.handleSearchInput);
 
   container.handleProductosClick = async (e) => {
+    if (!isAdmin && (e.target.closest('#btn-nuevo-producto') || e.target.closest('[data-action]'))) {
+      showError('No tienes permisos para editar productos');
+      return;
+    }
+
     const btn = e.target.closest('button');
     if (!btn) return;
     const id = btn.dataset.id;
