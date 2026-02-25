@@ -45,6 +45,15 @@ app.use("/api/ventas", verifyToken, ventaRouter);
 // Esta es la línea que faltaba y causaba el error
 app.put("/api/profile", verifyToken, authController.updateProfile);
 
+// 🔧 Endpoint de debug para verificar token
+app.get("/api/debug/me", verifyToken, (req, res) => {
+  const db = require("./config/db");
+  db.get("SELECT id, username, role FROM usuarios WHERE id = ?", [req.userId], (err, user) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ userId: req.userId, user });
+  });
+});
+
 app.get('/', (req, res) => {
   res.send('Servidor Farmacia Activo 🔒');
 });

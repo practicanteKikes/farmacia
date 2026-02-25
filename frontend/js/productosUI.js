@@ -88,6 +88,11 @@ async function mostrarFormularioProducto(prod = {}) {
           </div>
         </div>
 
+        <div style="margin-top:10px;">
+          <label class="swal-label">📅 Fecha de Vencimiento</label>
+          <input id="swal-fecha-vencimiento" class="swal2-input" type="date" value="${prod.fecha_vencimiento ? prod.fecha_vencimiento.split('T')[0] : ''}">
+        </div>
+
         <label class="swal-label">💰 Precios de Venta</label>
         <div class="swal-grupo">
           <div class="input-wrapper"><label>P. Caja</label><input id="swal-precio-caja" class="swal2-input" type="number" value="${prod.precio_caja || ''}"></div>,
@@ -150,6 +155,7 @@ async function mostrarFormularioProducto(prod = {}) {
       return {
         nombre: document.getElementById('swal-nombre').value,
         codigo_barras: document.getElementById('swal-codigo').value,
+        fecha_vencimiento: document.getElementById('swal-fecha-vencimiento').value || null,
         tiene_sobres: tieneSobres,
         unidades_por_caja: unidadesTotalCaja,
         sobres_por_caja: sobresPorCaja,
@@ -170,10 +176,15 @@ export async function renderProductosView(container) {
   const oldSearch = container.querySelector('#search-productos');
   if (oldSearch && container.handleSearchInput) oldSearch.removeEventListener('input', container.handleSearchInput);
 
+  const role = localStorage.getItem('farmacia_role') || 'vendedor';
+  const isAdmin = role === 'admin';
+
+  console.log(`👤 Usuario actual - Rol: ${role}, ¿Es Admin?: ${isAdmin}`);
+
   container.innerHTML = `
     <div class="historial-header">
-      <h2>Gestión de Productos</h2>
-      <button id="btn-nuevo-producto" class="btn-primario">➕ Nuevo Producto</button>
+      <h2>Gestión de Productos ${isAdmin ? '(Modo Admin)' : '(Modo Lectura)'}</h2>
+      ${isAdmin ? '<button id="btn-nuevo-producto" class="btn-primario">➕ Nuevo Producto</button>' : '<p style="color: #999; font-size: 0.9rem;">Solo lectura: requiere permisos de admin</p>'}
     </div>
     <div class="search-bar-container" style="margin-bottom: 15px;">
       <input type="text" id="search-productos" placeholder="🔍 Buscar..." style="width:100%; padding:10px;">
@@ -198,7 +209,8 @@ export async function renderProductosView(container) {
             <th>P. Unidad</th>
             <th>P. Sobre</th>
             <th>P. Caja</th>
-            <th>Acciones</th>
+            <th>Venc.</th>
+            ${isAdmin ? '<th>Acciones</th>' : ''}
           </tr>
         </thead>
         <tbody>
@@ -210,13 +222,14 @@ export async function renderProductosView(container) {
                   ${formatearStock(p.stock, p.unidades_por_caja, p.tiene_sobres, p.unidades_por_sobre)}
                 </span>
               </td>
-              <td>$${p.precio.toLocaleString()}</td>
-              <td>${p.tiene_sobres ? `$${p.precio_sobre.toLocaleString()}` : '-'}</td>
-              <td>${p.unidades_por_caja > 1 ? `$${p.precio_caja.toLocaleString()}` : '-'}</td>
-              <td>
+              <td>$${(p.precio||0).toLocaleString()}</td>
+              <td>${p.tiene_sobres ? `$${(p.precio_sobre||0).toLocaleString()}` : '-'}</td>
+              <td>${p.unidades_por_caja > 1 ? `$${(p.precio_caja||0).toLocaleString()}` : '-'}</td>
+              <td>${p.fecha_vencimiento ? (new Date(p.fecha_vencimiento)).toLocaleDateString() : '-'}</td>
+              ${isAdmin ? `<td>
                 <button data-id="${p.id}" data-action="editar">✏️</button>
                 <button data-id="${p.id}" data-action="eliminar">🗑️</button>
-              </td>
+              </td>` : ''}
             </tr>
           `).join('')}
         </tbody>
@@ -236,6 +249,11 @@ export async function renderProductosView(container) {
   document.getElementById('search-productos').addEventListener('input', container.handleSearchInput);
 
   container.handleProductosClick = async (e) => {
+    if (!isAdmin && (e.target.closest('#btn-nuevo-producto') || e.target.closest('[data-action]'))) {
+      showError('No tienes permisos para editar productos');
+      return;
+    }
+
     const btn = e.target.closest('button');
     if (!btn) return;
     const id = btn.dataset.id;
