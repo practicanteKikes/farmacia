@@ -8,21 +8,24 @@ import { showConfirm } from './utils/alerts.js';
 // --- LÓGICA DE SESIÓN ---
 
 function checkAuth() {
-  // Verificamos si existe el token en la sesión temporal
-  const token = sessionStorage.getItem('farmacia_token');
+  // Verificamos si existe el token en localStorage
+  const token = localStorage.getItem('farmacia_token');
   return !!token;
 }
 
 function realizarLogout() {
-  sessionStorage.removeItem('farmacia_token');
-  sessionStorage.removeItem('farmacia_user');
+  localStorage.removeItem('farmacia_token');
+  localStorage.removeItem('farmacia_user');
+  localStorage.removeItem('farmacia_role');
   window.location.reload(); // Recargar para volver al login limpio
 }
 
 // --- INICIO DE LA APLICACIÓN (POST-LOGIN) ---
 
 function initApp(appContainer) {
-  const user = sessionStorage.getItem('farmacia_user') || 'Usuario';
+  const user = localStorage.getItem('farmacia_user') || 'Usuario';
+  const role = localStorage.getItem('farmacia_role') || 'vendedor';
+  const isAdmin = role === 'admin';
 
   // 1. Dibujar la estructura base (Menú + Contenedor de Vistas)
   appContainer.innerHTML = `
@@ -36,7 +39,7 @@ function initApp(appContainer) {
         <div class="menu-spacer"></div>
         
         <button id="btnPerfil" style="color:#555;">⚙️ Perfil</button>
-        <button id="btnLogout" style="color: #dc3545; font-weight: bold;">🚪 Salir (${user})</button>
+        <button id="btnLogout" style="color: #dc3545; font-weight: bold;">🚪 Salir (${user} - ${role.toUpperCase()})</button>
       </nav>
       <section id="vista"></section>
     </div>

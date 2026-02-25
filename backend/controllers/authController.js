@@ -34,7 +34,7 @@ exports.login = (req, res) => {
       expiresIn: 86400 // 24 horas
     });
 
-    res.status(200).json({ auth: true, token: token, username: user.username });
+    res.status(200).json({ auth: true, token: token, username: user.username, role: user.role });
   });
 };
 

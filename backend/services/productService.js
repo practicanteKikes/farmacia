@@ -59,6 +59,8 @@ function procesarDatosProducto(p) {
     costo: costo_unidad, // Costo de la unidad mínima (para cierre de caja)
 
     stock: stock_total
+    ,
+    fecha_vencimiento: p.fecha_vencimiento || null
   };
 }
 
@@ -77,14 +79,14 @@ const addProduct = (data) => {
     
     const query = `
       INSERT INTO productos 
-      (nombre, codigo_barras, precio, precio_caja, precio_sobre, stock, costo, costo_caja, costo_sobre, tiene_sobres, unidades_por_caja, sobres_por_caja, unidades_por_sobre) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (nombre, codigo_barras, precio, precio_caja, precio_sobre, stock, costo, costo_caja, costo_sobre, tiene_sobres, unidades_por_caja, sobres_por_caja, unidades_por_sobre, fecha_vencimiento) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
     
     const params = [
       p.nombre, p.codigo_barras, p.precio, p.precio_caja, p.precio_sobre, p.stock, 
       p.costo, p.costo_caja, p.costo_sobre, p.tiene_sobres, p.unidades_por_caja, 
-      p.sobres_por_caja, p.unidades_por_sobre
+      p.sobres_por_caja, p.unidades_por_sobre, p.fecha_vencimiento
     ];
 
     db.run(query, params, function (err) {
@@ -105,14 +107,14 @@ const updateProduct = (id, data) => {
       UPDATE productos SET 
       nombre=?, codigo_barras=?, precio=?, precio_caja=?, precio_sobre=?, stock=?, 
       costo=?, costo_caja=?, costo_sobre=?, tiene_sobres=?, unidades_por_caja=?, 
-      sobres_por_caja=?, unidades_por_sobre=?
+      sobres_por_caja=?, unidades_por_sobre=?, fecha_vencimiento=?
       WHERE id=?
     `;
     
     const params = [
       p.nombre, p.codigo_barras, p.precio, p.precio_caja, p.precio_sobre, p.stock, 
       p.costo, p.costo_caja, p.costo_sobre, p.tiene_sobres, p.unidades_por_caja, 
-      p.sobres_por_caja, p.unidades_por_sobre, id
+      p.sobres_por_caja, p.unidades_por_sobre, p.fecha_vencimiento, id
     ];
 
     db.run(query, params, function(err) {
